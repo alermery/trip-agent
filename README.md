@@ -39,8 +39,6 @@
 │   ├── common.js / style.css / favicon.ico
 │   ├── assets/                   # 图片等静态资源
 │   └── vendor/                   # marked、DOMPurify 等第三方脚本
-├── start-assistant.bat           # Windows：起后端 Uvicorn + 前端 http.server + 打开浏览器
-├── stop-assistant.bat            # Windows：按端口结束监听进程
 ├── README.md
 └── .gitignore
 ```
@@ -49,7 +47,6 @@
 
 | 路径 | 功能 |
 |------|------|
-| `start-assistant.bat` / `stop-assistant.bat` | 一键启停默认端口 **8000**（后端）与 **5500**（前端静态服务）。 |
 | `README.md` | 项目说明与运维指引。 |
 | `.gitignore` | 忽略 `.env`、`backend/chroma_db/`、虚拟环境、IDE 配置等。 |
 
@@ -164,12 +161,11 @@
 
 ---
 
-## 快速开始（Windows）
+## 快速开始
 
-1. 复制 **`backend/.env.example`** 为 **`backend/.env`**，至少填写 **`DASHSCOPE_API_KEY`**、**`PG_DSN`**；按需配置 Neo4j、和风、高德、Ollama 等（见下文变量表）。  
-2. 在仓库根目录双击 **`start-assistant.bat`**（或手动执行下方「手动启动」命令）。  
-3. 浏览器访问 **`http://127.0.0.1:5500`**。页面中 API 基地址建议为 **`http://127.0.0.1:8000`**，WebSocket 为 **`ws://127.0.0.1:8000/ws/chat`**。  
-4. 停止：双击 **`stop-assistant.bat`**（按端口结束监听进程）。
+1. 复制 **`backend/.env.example`** 为 **`backend/.env`**，至少填写 **`DASHSCOPE_API_KEY`**、**`PG_DSN`**；按需配置 Neo4j、和风、高德、Ollama 等（见下文变量表）。
+2. 在终端按下方「手动启动」分别启动后端（默认 **8000**）与前端静态服务（默认 **5500**）；停止时在对应终端按 `Ctrl+C` 结束进程即可。
+3. 浏览器访问 **`http://127.0.0.1:5500`**。页面中 API 基地址建议为 **`http://127.0.0.1:8000`**，WebSocket 为 **`ws://127.0.0.1:8000/ws/chat`**。
 
 ### 手动启动（任意系统）
 
