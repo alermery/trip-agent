@@ -42,7 +42,7 @@ backend.app.# 小C助手
 
 ## 快速开始
 
-1. 复制 `backend/.env.example` 为 `backend/.env`，至少配置 **`DASHSCOPE_API_KEY`**、**`PG_DSN`**；其余见该文件说明。
+1. 配置 `backend/.env`，至少配置 **`DASHSCOPE_API_KEY`**、**`PG_DSN`**。
 2. 安装依赖（在项目根目录执行）：
 
    ```bash
