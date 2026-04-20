@@ -1,4 +1,4 @@
-"""Chroma 单例客户端 + 进程内锁，减轻多路并发打开同一 persist 目录导致的 HNSW/compactor 损坏与报错。"""
+# Chroma 单例客户端 + 进程内锁，减轻多路并发打开同一 persist 目录导致的 HNSW/compactor 损坏与报错。
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ _CORRUPT_MARKERS = (
 
 
 def chroma_persist_root() -> str:
-    """与 get_travel_details.Config / persist_chroma / chroma_rag_kb 使用同一目录。"""
+    # 与 get_travel_details.Config / persist_chroma / chroma_rag_kb 使用同一目录。
     return str(Path(__file__).resolve().parents[2] / "chroma_db")
 
 
@@ -68,7 +68,7 @@ def _get_chroma_client() -> chromadb.ClientAPI:
 
 
 def reset_chroma_client_for_tests() -> None:
-    """仅测试用：清空进程内单例。"""
+    # 仅测试用：清空进程内单例。
     global _CLIENT, _CLIENT_ROOT, _EMBEDDINGS
     with _LOCK:
         _CLIENT = None
@@ -85,13 +85,13 @@ def _delete_collection_quiet(name: str) -> None:
 
 
 def repair_chroma_collection(collection_name: str) -> None:
-    """删除损坏集合，由下次 LangChain 访问时按 embedding 维度自动重建。"""
+    # 删除损坏集合，由下次 LangChain 访问时按 embedding 维度自动重建。
     with _LOCK:
         _delete_collection_quiet(collection_name)
 
 
 def get_langchain_chroma(collection_name: str) -> Chroma:
-    """同一 persist 根目录、共享 PersistentClient，避免每次 invoke 新建客户端。"""
+    # 同一 persist 根目录、共享 PersistentClient，避免每次 invoke 新建客户端。
     with _LOCK:
         return Chroma(
             client=_get_chroma_client(),
@@ -108,9 +108,7 @@ def chroma_similarity_search(
     k: int = 3,
     repair_on_corrupt: bool = True,
 ) -> list[Document]:
-    """
-    带锁的相似度检索；若命中 HNSW/compactor 类错误则删除集合并重试一次（空结果直至重新入库）。
-    """
+    # 带锁的相似度检索；若命中 HNSW/compactor 类错误则删除集合并重试一次（空结果直至重新入库）。
     q = (query or "").strip()
     if not q:
         return []
@@ -141,7 +139,7 @@ def chroma_add_documents(
     documents: list[Document],
     ids: list[str],
 ) -> None:
-    """写入与检索共用锁，降低并发写读与 compactor 冲突概率。"""
+    # 写入与检索共用锁，降低并发写读与 compactor 冲突概率。
     if not documents:
         return
     with _LOCK:

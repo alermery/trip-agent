@@ -1,7 +1,5 @@
-"""
-从 PostgreSQL 聊天历史中摘录用户近期提问，作为「用户历史偏好库」的轻量实现；
-并支持按 conversation_id 拉取本会话前文，供多轮指代与 Neo4j 解析。
-"""
+# 从 PostgreSQL 聊天历史中摘录用户近期提问，作为「用户历史偏好库」的轻量实现；
+# 并支持按 conversation_id 拉取本会话前文，供多轮指代与 Neo4j 解析。
 
 from __future__ import annotations
 
@@ -68,10 +66,8 @@ def build_same_conversation_prompt_block(
     max_user_chars: int = 900,
     max_assistant_chars: int = 1200,
 ) -> str:
-    """
-    本会话内已落库的最近若干轮 Q/A（不含当前正在发送的这一条）。
-    用于指代消解：如用户只说「全部套餐有哪些」时，仍应继承上一句里的「上海」等实体。
-    """
+    # 本会话内已落库的最近若干轮 Q/A（不含当前正在发送的这一条）。
+    # 用于指代消解：如用户只说「全部套餐有哪些」时，仍应继承上一句里的「上海」等实体。
     cid = (conversation_id or "").strip()
     if not cid or not (username or "").strip():
         logger.debug(
@@ -153,7 +149,7 @@ def build_planner_history_messages(
     max_user_chars: int = 2500,
     max_assistant_chars: int = 8000,
 ) -> list[HumanMessage | AIMessage]:
-    """供 LangChain create_agent 多轮消息列表（不含当前轮）。"""
+    # 供 LangChain create_agent 多轮消息列表（不含当前轮）。
     cid = (conversation_id or "").strip()
     if not cid or not (username or "").strip():
         logger.debug("build_planner_history_messages: skip empty username=%r conversation_id=%r", username, conversation_id)

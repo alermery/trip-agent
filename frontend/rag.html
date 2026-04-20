@@ -22,10 +22,13 @@
         <br />· <strong>其它表格或纯文本</strong> → 切块写入 <strong>Chroma rag_kb</strong>，由规划智能体的 <code>rag_kb_retriever</code> 检索。
       </p>
 
-      <label>
-        API 基地址
-        <input id="apiBase" value="http://127.0.0.1:8000">
-      </label>
+      <!-- 仍参与逻辑与默认值，仅不在界面展示 -->
+      <div class="xc-endpoint-fields" aria-hidden="true">
+        <label>
+          API 基地址
+          <input id="apiBase" value="http://127.0.0.1:8000" autocomplete="off" />
+        </label>
+      </div>
       <label class="rag-file-label">
         选择文件
         <input id="fileInput" type="file" accept=".txt,.csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain">
@@ -42,13 +45,22 @@
     const uploadBtn = document.getElementById("uploadBtn");
     const resultEl = document.getElementById("result");
     const logoutAdmin = document.getElementById("logoutAdmin");
+    const XC_DEFAULT_API_BASE = "http://127.0.0.1:8000";
+
+    function getApiBase() {
+      const raw =
+        (apiBaseInput && apiBaseInput.value.trim()) ||
+        localStorage.getItem("xc_api_base") ||
+        XC_DEFAULT_API_BASE;
+      return raw.replace(/\/$/, "");
+    }
 
     const token = localStorage.getItem("xc_admin_token");
     if (!token) {
       window.location.replace("./admin-login.html");
     }
 
-    if (localStorage.getItem("xc_api_base")) {
+    if (apiBaseInput && localStorage.getItem("xc_api_base")) {
       apiBaseInput.value = localStorage.getItem("xc_api_base");
     }
 
@@ -101,7 +113,7 @@
     }
 
     uploadBtn.addEventListener("click", async () => {
-      const base = apiBaseInput.value.trim().replace(/\/$/, "");
+      const base = getApiBase();
       const f = fileInput.files && fileInput.files[0];
       if (!f) {
         resultEl.innerHTML = "<p style='color: #f59e0b;'>⚠️ 请先选择文件。</p>";

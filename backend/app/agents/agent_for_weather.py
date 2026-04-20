@@ -45,7 +45,7 @@ class WeatherAgent:
         )
 
     def weather_assistant(self, location: str) -> tuple[str, list[dict[str, str]]]:
-        """根据自然语言地点描述返回天气与出行相关建议；返回 (正文, 工具返回列表)。"""
+        # 天气助手；返回 (正文, 工具返回列表)。
         try:
             response = self.agent.invoke({"messages": [{"role": "user", "content": f"{location}"}]})
             traces = extract_tool_traces_from_lc_messages(response.get("messages"))

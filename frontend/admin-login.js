@@ -4,18 +4,28 @@ const passwordInput = document.getElementById("password");
 const hintEl = document.getElementById("hint");
 const loginBtn = document.getElementById("loginBtn");
 
+const XC_DEFAULT_API_BASE = "http://127.0.0.1:8000";
+
 function showHint(text, isError) {
   hintEl.textContent = text;
   hintEl.classList.toggle("error", !!isError);
 }
 
-if (localStorage.getItem("xc_api_base")) {
+function getApiBase() {
+  const raw =
+    (apiBaseInput && apiBaseInput.value.trim()) ||
+    localStorage.getItem("xc_api_base") ||
+    XC_DEFAULT_API_BASE;
+  return raw.replace(/\/$/, "");
+}
+
+if (apiBaseInput && localStorage.getItem("xc_api_base")) {
   apiBaseInput.value = localStorage.getItem("xc_api_base");
 }
 
 loginBtn.addEventListener("click", async () => {
   try {
-    const base = apiBaseInput.value.trim().replace(/\/$/, "");
+    const base = getApiBase();
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
     const response = await fetch(`${base}/auth/admin/login`, {

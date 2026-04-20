@@ -1,3 +1,5 @@
+# 当前登录用户的聊天历史查询（最近若干条）。
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,7 @@ def get_my_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[ChatHistoryItem]:
+    # 按创建时间倒序返回最多 100 条，含会话 ID 与智能体类型等展示字段。
     rows = (
         db.query(ChatMessage)
         .filter(ChatMessage.user_id == current_user.id)

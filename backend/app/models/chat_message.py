@@ -1,10 +1,7 @@
 from datetime import datetime
-
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from backend.app.db import Base
-
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"

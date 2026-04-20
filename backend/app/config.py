@@ -1,7 +1,8 @@
+# 配置
+
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
-
 
 class Settings(BaseSettings):
     # 数据库配置
@@ -29,6 +30,5 @@ class Settings(BaseSettings):
         "env_file": str(Path(__file__).resolve().parents[1] / ".env"),
         "env_file_encoding": "utf-8",
     }
-
 
 settings = Settings()

@@ -1,8 +1,6 @@
 from typing import Optional
-
 import requests
 from langchain_core.tools import tool
-
 from backend.app.config import settings
 from backend.app.services.amap_route_service import driving_route_as_text
 from backend.app.tools import NoTool
@@ -18,16 +16,7 @@ _BED = "\U0001f6cf\ufe0f"
 _BULB = "\U0001f4a1"
 _GLOBE = "\U0001f310"
 
-
-def _nearby_typed_places(
-    location_label: str,
-    location_coord: str,
-    radius: int,
-    types: str,
-    type_keywords: tuple[str, ...],
-    emoji: str,
-    noun: str,
-) -> str:
+def _nearby_typed_places(location_label: str, location_coord: str, radius: int, types: str, type_keywords: tuple[str, ...], emoji: str, noun: str,) -> str:
     params = {
         "key": AMAP_API_KEY,
         "location": location_coord,
@@ -50,22 +39,16 @@ def _nearby_typed_places(
         return f"{_ERR}{location_label}附近{radius}米内未找到相关{noun}。"
     return f"在 {location_label} 附近{radius}米内的{noun}:\n" + "\n".join(rows[:10])
 
-
-@tool
+@tool(description="地址转坐标（地理编码）。")
 def geocode_address(address: str) -> str:
-    """地址转坐标（地理编码）。"""
     return NoTool.geocode_address(address)
 
-
-@tool
+@tool(description="市内驾车路线规划：输入起点、终点地名（或经度,纬度），返回距离、耗时摘要；用户可在界面地图查看路线。")
 def route_plan(start: str, end: str, strategy: str = "0") -> str:
-    """市内驾车路线规划：输入起点、终点地名（或经度,纬度），返回距离、耗时摘要；用户可在界面地图查看路线。"""
     return driving_route_as_text(start, end, strategy)
 
-
-@tool
+@tool(description="搜索附近指定半径内的住宿服务用于用户参考，仅推荐前三位。")
 def nearby_hotels(location: str, radius: int = 1000) -> str:
-    """搜索附近1km的住宿服务用于用户参考，仅推荐前三位。"""
     coord = NoTool.geocode_lonlat(location)
     if not coord:
         return NoTool.geocode_address(location)
@@ -79,10 +62,8 @@ def nearby_hotels(location: str, radius: int = 1000) -> str:
         "酒店住宿",
     )
 
-
-@tool
+@tool(description="搜索附近指定半径内的餐饮服务用于用户参考，仅推荐前三位。")
 def nearby_restaurants(location: str, radius: int = 5000) -> str:
-    """搜索附近1km的餐饮服务用于用户参考，仅推荐前三位。"""
     coord = NoTool.geocode_lonlat(location)
     if not coord:
         return NoTool.geocode_address(location)
@@ -96,23 +77,16 @@ def nearby_restaurants(location: str, radius: int = 5000) -> str:
         "餐饮场所",
     )
 
-
-@tool
-def get_user_location(
-    latitude: Optional[float] = None,
-    longitude: Optional[float] = None,
-    ip_address: Optional[str] = None,
-) -> str:
-    """取用户当前位置（浏览器坐标/IP/高德定位）。"""
+@tool(description="取用户当前位置（浏览器坐标/IP/高德定位）。")
+def get_user_location(latitude: Optional[float] = None,longitude: Optional[float] = None,ip_address: Optional[str] = None,) -> str:
     if latitude and longitude:
         return reverse_geocode(latitude, longitude)
     if ip_address:
         return ip_geolocation(ip_address)
     return simulate_location()
 
-
 def reverse_geocode(lat: float, lon: float) -> str:
-    """高德坐标转地址 + 天气 + 附近酒店"""
+    # 高德坐标转地址 + 天气 + 附近酒店。
     url = "https://restapi.amap.com/v3/geocode/regeo"
     params = {
         "key": AMAP_API_KEY,
@@ -136,9 +110,8 @@ def reverse_geocode(lat: float, lon: float) -> str:
         )
     return f"{_ERR}坐标解析失败"
 
-
 def ip_geolocation(ip: str) -> str:
-    """免费IP定位API"""
+    # 免费 IP 定位 API。
     try:
         resp = requests.get(f"http://ip-api.com/json/{ip}?fields=city,regionName,country,lat,lon")
         data = resp.json()
@@ -151,7 +124,6 @@ def ip_geolocation(ip: str) -> str:
         pass
     return f"{_ERR}IP定位失败"
 
-
 def simulate_location() -> str:
-    """前端未传坐标时的模拟"""
+    # 前端未传坐标时的模拟。
     return f"{_PIN} **默认位置：北京市朝阳区**\n{_BULB} 请授权浏览器定位获取精确位置"

@@ -6,9 +6,12 @@ from backend.app.tools import NoTool
 QWEATHER_API_KEY = settings.QWEATHER_API_KEY
 QWEATHER_HOST = settings.QWEATHER_HOST
 
-@tool
+@tool(description=(
+        "和风 7 日预报：返回 1～7 天逐日天气。days 必须与用户行程天数一致（如「五日游」「玩 5 天」传 5）；"
+        "用户未提天数时可传 7。城市用中文名。"
+    ),
+)
 def qweather_forecast(city: str = "北京", days: int = 7) -> str:
-    """和风 7 日预报：返回 1～7 天逐日天气。days 必须与用户行程天数一致（如「五日游」「玩 5 天」传 5）；用户未提天数时可传 7。城市用中文名。"""
     if not QWEATHER_API_KEY:
         return "❌ 配置错误：请设置 QWEATHER_API_KEY"
 

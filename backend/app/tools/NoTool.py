@@ -1,17 +1,12 @@
-"""
-供 @tool 包装函数内部调用的实现：避免 LangChain tool 装饰器导致无法直接互相调用。
-"""
+# 供 @tool 包装函数内部调用的实现：避免 LangChain tool 装饰器导致无法直接互相调用。
 
 from pathlib import Path
 from typing import Any, Optional
-
 import pandas as pd
 import requests
-
 from backend.app.config import settings
 
 AMAP_API_KEY = settings.AMAP_API_KEY
-
 
 def _geocode_first(address: str) -> Optional[dict[str, Any]]:
     params = {"key": AMAP_API_KEY, "address": address, "output": "JSON"}
@@ -21,12 +16,10 @@ def _geocode_first(address: str) -> Optional[dict[str, Any]]:
         return None
     return data["geocodes"][0]
 
-
 def geocode_lonlat(address: str) -> Optional[str]:
-    """成功时返回高德格式的「经度,纬度」字符串。"""
+    # 成功时返回高德格式的「经度,纬度」字符串。
     geo = _geocode_first(address)
     return str(geo["location"]) if geo else None
-
 
 def geocode_address(address: str) -> str:
     geo = _geocode_first(address)
@@ -35,9 +28,8 @@ def geocode_address(address: str) -> str:
     lonlat = geo["location"].split(",")
     return f"\U0001f4cd {geo['formatted_address']}\n经度:{lonlat[0]} 纬度:{lonlat[1]}"
 
-
 def nearby_places(location: str, radius: int = 1000) -> str:
-    """根据经纬度坐标获取周边兴趣点。"""
+    # 根据经纬度坐标获取周边兴趣点。
     params = {
         "key": AMAP_API_KEY,
         "location": location,
@@ -59,13 +51,11 @@ def nearby_places(location: str, radius: int = 1000) -> str:
         formatted.append(f"- {p.get('name', '未知地点')}（{p.get('distance', '?')}米）")
     return "\n".join(formatted)
 
-
 _city_codes_cache: Optional[pd.DataFrame] = None
 CSV_PATH = str(Path(__file__).resolve().parent.parent / "data" / "city_code.csv")
 
-
 def load_city_codes(csv_path: str = CSV_PATH) -> pd.DataFrame:
-    """加载CSV城市代码表（首次加载，后续缓存）"""
+    # 加载 CSV 城市代码表（首次加载，后续缓存）。
     global _city_codes_cache
     if _city_codes_cache is None:
         try:
@@ -80,9 +70,8 @@ def load_city_codes(csv_path: str = CSV_PATH) -> pd.DataFrame:
 
     return _city_codes_cache
 
-
 def find_city_code(city_name: str) -> str:
-    """智能检索城市代码：精确匹配 > 模糊包含 > 原名兜底"""
+    # 智能检索城市代码：精确匹配 > 模糊包含 > 原名兜底。
     df = load_city_codes()
 
     exact = df[df["城市名称"] == city_name]

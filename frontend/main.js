@@ -89,7 +89,6 @@ let composerAwaitingReply = false;
 
 /** 与后端 AgentType 一致；仅用于界面展示为中文 */
 const AGENT_LABEL_ZH = {
-  auto: "自动",
   weather: "天气",
   map: "地图",
   planner: "旅行规划",

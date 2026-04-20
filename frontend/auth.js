@@ -5,13 +5,19 @@ const hintEl = document.getElementById("hint");
 const registerBtn = document.getElementById("registerBtn");
 const loginBtn = document.getElementById("loginBtn");
 
+const XC_DEFAULT_API_BASE = "http://127.0.0.1:8000";
+
 function showHint(text, isError = false) {
   hintEl.textContent = text;
   hintEl.classList.toggle("error", isError);
 }
 
 function getApiBase() {
-  return apiBaseInput.value.trim().replace(/\/$/, "");
+  const raw =
+    (apiBaseInput && apiBaseInput.value.trim()) ||
+    localStorage.getItem("xc_api_base") ||
+    XC_DEFAULT_API_BASE;
+  return raw.replace(/\/$/, "");
 }
 
 async function postJson(path, body) {
@@ -35,7 +41,7 @@ function saveBaseAndToken(base, token) {
   localStorage.setItem("xc_token", token);
 }
 
-if (localStorage.getItem("xc_api_base")) {
+if (apiBaseInput && localStorage.getItem("xc_api_base")) {
   apiBaseInput.value = localStorage.getItem("xc_api_base");
 }
 

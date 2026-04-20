@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
 
-
+# 与 Neo4j TravelDetail / Price / Departure 及 Chroma 文档对齐的结构。
 @dataclass
 class TravelListing:
-    """与 Neo4j TravelDetail / Price / Departure 及 Chroma 文档对齐的结构。"""
-
     source_id: str
     source_site: str
     detail: str

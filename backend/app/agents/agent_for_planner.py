@@ -1,9 +1,7 @@
 from langchain.agents import create_agent
 from langchain_core.messages import BaseMessage, HumanMessage
-
 from backend.app.agents.tongyi_llm import get_chat_tongyi
 from backend.app.services.tool_trace import extract_tool_traces_from_lc_messages
-
 from backend.app.tools.get_map import (
     geocode_address,
     get_user_location,
@@ -87,12 +85,8 @@ class PlannerAgent:
             system_prompt=self.system_prompt,
         )
 
-    def planner_assistant(
-        self,
-        user_query: str,
-        *,
-        history_messages: list[BaseMessage] | None = None,
-    ) -> tuple[str, list[dict[str, str]]]:
+    def planner_assistant(self, user_query: str, *, history_messages: list[BaseMessage] | None = None) -> tuple[str, list[dict[str, str]]]:
+        # 规划助手；返回 (正文, 工具返回列表)。
         try:
             prior = list(history_messages or [])
             messages: list[BaseMessage | dict] = [*prior, HumanMessage(content=user_query)]

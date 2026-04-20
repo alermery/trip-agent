@@ -1,5 +1,4 @@
 from langchain.agents import create_agent
-
 from backend.app.agents.tongyi_llm import get_chat_tongyi
 from backend.app.services.tool_trace import extract_tool_traces_from_lc_messages
 from backend.app.tools.get_map import (
@@ -52,7 +51,7 @@ class MapAgent:
         )
 
     def map_assistant(self, location: str) -> tuple[str, list[dict[str, str]]]:
-        """地图总助手；返回 (回复正文, 工具返回列表)。"""
+        # 地图助手；返回 (回复正文, 工具返回列表)。
         try:
             response = self.agent.invoke({"messages":[{"role": "user", "content": f"{location}"}]})
             traces = extract_tool_traces_from_lc_messages(response.get("messages"))

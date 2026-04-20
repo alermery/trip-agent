@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from neo4j import GraphDatabase
 
 from backend.app.config import settings
@@ -10,9 +9,8 @@ driver = GraphDatabase.driver(
     auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
 )
 
-
+# 与 get_travel_details 中 Cypher 查询兼容：TravelDetail.detail / Departure / Price / Offer。
 def upsert_listing(tx, item: TravelListing) -> None:
-    """与 get_travel_details 中 Cypher 查询兼容：TravelDetail.detail / Departure / Price / Offer。"""
     tx.run(
         """
         MERGE (td:TravelDetail {source_id: $source_id})
@@ -53,7 +51,6 @@ def upsert_listing(tx, item: TravelListing) -> None:
             source_id=item.source_id,
             offer=off[:500],
         )
-
 
 def write_listings_to_neo4j(items: list[TravelListing]) -> int:
     if not items:

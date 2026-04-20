@@ -1,3 +1,5 @@
+# 基于高德逆地理编码：将经纬度转为结构化地址与城市名（带本地 LRU 缓存）。
+
 import requests
 from functools import lru_cache
 from fastapi import APIRouter, HTTPException, Query
@@ -9,6 +11,7 @@ router = APIRouter(prefix="/location", tags=["location"])
 
 @lru_cache(maxsize=512)
 def _reverse_by_rounded_coord(lat_round: float, lon_round: float) -> dict[str, str]:
+    # 对坐标做少量小数位规整后缓存，减少重复调用高德 API 的次数与费用。
     params = {
         "key": settings.AMAP_API_KEY,
         "location": f"{lon_round},{lat_round}",
@@ -34,6 +37,7 @@ def reverse_geocode(
     latitude: float = Query(..., description="纬度"),
     longitude: float = Query(..., description="经度"),
 ) -> dict[str, str]:
+    # HTTP GET 查询参数传入 WGS/GCJ 等坐标系下的经纬度，返回 formatted_address 与城市。
     if not settings.AMAP_API_KEY:
         raise HTTPException(status_code=500, detail="未配置 AMAP_API_KEY")
 

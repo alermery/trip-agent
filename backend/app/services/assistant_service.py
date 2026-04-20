@@ -1,3 +1,5 @@
+# 对话编排服务：按用户显式选择的智能体类型调用天气 / 地图 / 行程智能体。
+
 import logging
 from functools import lru_cache
 
@@ -10,41 +12,28 @@ from backend.app.services.user_travel_context import build_planner_history_messa
 logger = logging.getLogger(__name__)
 
 
+# 应用内统一入口，封装各 LangChain Agent 的构造与调用。
 class AssistantService:
     def __init__(self) -> None:
         self._weather = WeatherAgent()
         self._map = MapAgent()
         self._planner = PlannerAgent()
 
-    def _auto_select(self, query: str) -> AgentType:
-        """天气 / 地图类问句单独路由，其余默认 planner。"""
-        text = query.lower()
-        if any(k in text for k in ("天气", "温度", "降雨", "台风", "weather")):
-            return "weather"
-        if any(k in text for k in ("地图", "导航", "路线", "附近", "酒店", "餐馆", "map", "route")):
-            return "map"
-        return "planner"
-
-    def resolve_target_agent(self, agent: AgentType, query: str) -> AgentType:
-        """不执行模型调用，仅解析 auto 路由后的目标智能体（供 WebSocket 注入上下文等）。"""
-        return self._auto_select(query) if agent == "auto" else agent
-
     def chat(
         self,
         query: str,
-        agent: AgentType = "auto",
+        agent: AgentType,
         *,
         username: str | None = None,
         conversation_id: str | None = None,
     ) -> tuple[AgentType, str, list[dict[str, str]]]:
-        target = self._auto_select(query) if agent == "auto" else agent
-        if target == "weather":
+        if agent == "weather":
             text, tools = self._weather.weather_assistant(query)
             return "weather", text, tools
-        if target == "map":
+        if agent == "map":
             text, tools = self._map.map_assistant(query)
             return "map", text, tools
-        # planner（含显式 agent=planner 与 auto 路由的默认分支）
+        # planner
         hist: list = []
         if username and conversation_id:
             hist = build_planner_history_messages(username, conversation_id)

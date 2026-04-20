@@ -17,10 +17,13 @@
       <h1>注册小C助手</h1>
       <p>创建账号后将自动登录并进入聊天；会话与历史按用户隔离存储。</p>
 
-      <label>
-        API 基地址
-        <input id="apiBase" value="http://127.0.0.1:8000">
-      </label>
+      <!-- 仍参与逻辑与默认值，仅不在界面展示（与对话页一致） -->
+      <div class="xc-endpoint-fields" aria-hidden="true">
+        <label>
+          API 基地址
+          <input id="apiBase" value="http://127.0.0.1:8000" autocomplete="off" />
+        </label>
+      </div>
       <label>
         用户名
         <input id="username" placeholder="请输入用户名">

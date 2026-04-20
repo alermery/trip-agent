@@ -1,9 +1,8 @@
 import time
 from langchain_core.tools import tool
 
-@tool
+@tool(description="旅游出行季节注意事项。")
 def travel_season_tips(city: str) -> str:
-    """旅游出行季节注意事项。"""
     # 获取当前时间并提取月份
     current_time = time.strftime("%Y-%m-%d-%H-%M")
     month_str = current_time.split("-")[1]
@@ -33,9 +32,8 @@ def travel_season_tips(city: str) -> str:
 
     return f"当前时间为：{current_time}，城市{city}的季节为{season}，需要注意事项有{tips}。"
 
-@tool
+@tool(description="旅游出行安全注意事项。")
 def travel_safe_tips():
-    """旅游出行安全注意事项。"""
     return ("1.一定要规划好出行路线，不要盲目出行。 "
             "2.出行前注意查看当地天气情况。 "
             "3.女生应随身携带防身物品。 "

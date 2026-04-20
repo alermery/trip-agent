@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import hashlib
 import re
 from functools import lru_cache
@@ -28,10 +27,8 @@ _ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("raw_title", ("raw_title", "名称", "产品名", "标题名")),
 )
 
-
 def _fold(s: str) -> str:
     return str(s).strip().replace("\ufeff", "").replace("\u3000", " ").strip()
-
 
 def _chunk_txt(text: str) -> list[str]:
     t = text.strip()
@@ -42,7 +39,6 @@ def _chunk_txt(text: str) -> list[str]:
     for p in parts:
         out.extend([p[i : i + _MAX] for i in range(0, len(p), _MAX)] if len(p) > _MAX else [p])
     return out or [t[:_MAX]]
-
 
 @lru_cache
 def _hints_longest() -> tuple[str, ...]:
@@ -59,7 +55,6 @@ def _hints_longest() -> tuple[str, ...]:
         raise ValueError(f"{_HINT_CSV.name} 无有效词条")
     return tuple(sorted(set(names), key=len, reverse=True))
 
-
 def _infer_city(detail: str) -> str | None:
     d = (detail or "").strip()
     if len(d) < 2:
@@ -73,7 +68,6 @@ def _infer_city(detail: str) -> str | None:
             return n[:80]
     return None
 
-
 def _strip_junk(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     while len(out.columns):
@@ -84,13 +78,11 @@ def _strip_junk(df: pd.DataFrame) -> pd.DataFrame:
             break
     return out
 
-
 def _hdr_tokens(col: str) -> set[str]:
     h = _fold(col).lower()
     if not h:
         return set()
     return {p.strip() for p in re.split(r"[/\\|、，,\s]+", h) if p.strip()} | {h}
-
 
 def _canon_map(cols: list[str]) -> dict[str, str]:
     lm = {_fold(c).lower(): c for c in cols}
@@ -107,10 +99,8 @@ def _canon_map(cols: list[str]) -> dict[str, str]:
             m[canon] = found
     return m
 
-
 def _tabular(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, encoding="utf-8-sig") if path.suffix.lower() == ".csv" else pd.read_excel(path, engine="openpyxl")
-
 
 def _prep(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str, str]]:
     df = _strip_junk(df)
@@ -118,19 +108,16 @@ def _prep(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str, str]]:
     c = list(df.columns)
     return df, c, _canon_map(c)
 
-
 def _price_int(raw) -> int | None:
     if pd.isna(raw):
         return None
     s = re.search(r"(\d+(?:\.\d+)?)", str(raw).replace(",", "").replace("元", "").replace("¥", "").replace("￥", ""))
     return int(float(s.group(1))) if s else None
 
-
 def _cell(row, key: str | None) -> str:
     if not key or key not in row or pd.isna(row[key]):
         return ""
     return str(row[key]).strip()
-
 
 def _rows_to_listings(df: pd.DataFrame, cm: dict[str, str], src: str) -> tuple[list[TravelListing], dict]:
     dep, det, pr = cm["departure"], cm["detail"], cm["price"]
@@ -174,7 +161,6 @@ def _rows_to_listings(df: pd.DataFrame, cm: dict[str, str], src: str) -> tuple[l
     }
     return items, st
 
-
 def _generic_chunks(df: pd.DataFrame, name: str) -> list[str]:
     ch: list[str] = []
     for idx, row in df.iterrows():
@@ -188,10 +174,8 @@ def _generic_chunks(df: pd.DataFrame, name: str) -> list[str]:
             ch.append(pref + line)
     return ch
 
-
 def _ret(ts: list[str], cr: int, ct: int, neo: int, notes: list[str], **kw) -> dict:
     return {"targets": ts, "chroma_rag_kb_docs": cr, "chroma_travel_deals_docs": ct, "neo4j_upserts": neo, "notes": notes, **kw}
-
 
 def ingest_file(path: Path) -> dict:
     ext, name = path.suffix.lower(), path.name

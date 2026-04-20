@@ -1,7 +1,10 @@
+# WebSocket 聊天：鉴权、调用智能体、流式分片回复并支持客户端取消。
+
 import asyncio
 import logging
 import uuid
 from datetime import datetime
+from typing import cast
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -19,6 +22,7 @@ router = APIRouter(tags=["websocket"])
 
 
 def _parse_started_at(raw_value: str) -> datetime:
+    # 将客户端传入的会话开始时间解析为 naive UTC；非法或空则退回当前 UTC。
     try:
         value = str(raw_value or "").strip()
         if not value:
@@ -36,6 +40,7 @@ def _run_chat_and_save(
     conversation_id: str,
     conversation_started_at: datetime,
 ) -> tuple[str, str, list[dict[str, str]]]:
+    # 同步执行 LLM 对话并写入 chat_messages；由 asyncio.to_thread 在线程池中调用，避免阻塞事件循环。
     service = get_assistant_service()
     db = SessionLocal()
     try:
@@ -72,11 +77,11 @@ async def _stream_reply(
     cancel_event: asyncio.Event,
     incoming_queue: list,
 ) -> bool:
-    """流式输出；轮询 WebSocket 以支持客户端 `cancel`。返回 True 表示完整发完，False 表示被暂停。"""
-    step = 24
+    # 流式输出：按固定步长切片发送；轮询收包以支持客户端 cancel。返回 True 表示发完，False 表示被中断。
+    step = 24  # 每包字符数，兼顾实时性与消息条数
 
     async def drain_cancel_or_buffer(timeout: float) -> bool:
-        """若收到针对当前 message 的 cancel 返回 True；其它消息入队 incoming_queue。"""
+        # 短超时读一条 JSON：若是针对当前 message_id 的 cancel 则返回 True；否则放入 incoming_queue 供主循环处理。
         try:
             msg = await asyncio.wait_for(websocket.receive_json(), timeout=timeout)
         except asyncio.TimeoutError:
@@ -117,9 +122,11 @@ async def _stream_reply(
 
 @router.websocket("/ws/chat")
 async def websocket_chat(websocket: WebSocket) -> None:
+    # 全双工长连接：首包鉴权后循环收用户消息，Planner 会注入历史与偏好上下文。
     await websocket.accept()
 
     try:
+        # 首条消息须在 15 秒内完成鉴权，否则关闭连接
         auth_payload = await asyncio.wait_for(websocket.receive_json(), timeout=15)
         if auth_payload.get("type") != "auth":
             await websocket.close(code=1008, reason="Auth required")
@@ -131,9 +138,11 @@ async def websocket_chat(websocket: WebSocket) -> None:
             return
         await websocket.send_json({"type": "system", "message": "auth ok"})
 
+        # 流式发送期间可能“插队”收到下一条用户输入或 cancel，先入队再处理
         incoming_queue: list = []
 
         async def next_payload() -> dict:
+            # 优先消费队列（流式阶段缓冲的消息），否则阻塞等待下一条 WebSocket JSON。
             if incoming_queue:
                 return incoming_queue.pop(0)
             return await websocket.receive_json()
@@ -154,17 +163,22 @@ async def websocket_chat(websocket: WebSocket) -> None:
             conversation_id_generated = not raw_conversation_id
             conversation_id = raw_conversation_id or f"conv_{uuid.uuid4().hex}"
             conversation_started_at = _parse_started_at(payload.get("conversation_started_at", ""))
-            requested_agent = str(payload.get("agent", "auto"))
-            agent: AgentType = (
-                requested_agent
-                if requested_agent in {"auto", "weather", "map", "planner"}
-                else "auto"
-            )
+            raw_agent = str(payload.get("agent", "")).strip().lower()
+            if raw_agent not in ("weather", "map", "planner"):
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "请选择智能体：weather（天气）、map（地图）或 planner（旅行规划）",
+                    }
+                )
+                continue
+            agent = cast(AgentType, raw_agent)
 
             if not query:
                 await websocket.send_json({"type": "error", "message": "query 不能为空"})
                 continue
 
+            # 将定位信息拼进模型输入，便于地图/行程类回答使用坐标上下文
             if latitude is not None and longitude is not None:
                 query = (
                     f"{query}\n\n"
@@ -172,7 +186,8 @@ async def websocket_chat(websocket: WebSocket) -> None:
                     f"请优先结合定位信息进行回答。"
                 )
 
-            if current_city and agent in {"auto", "planner"}:
+            # 行程规划智能体：用户未写出发地时，用语义提示默认出发地为当前城市
+            if current_city and agent == "planner":
                 no_departure_hint = all(k not in query for k in ("从", "出发", "departure", "from"))
                 if no_departure_hint:
                     query = (
@@ -181,23 +196,20 @@ async def websocket_chat(websocket: WebSocket) -> None:
                         f"（定位地址：{current_address or current_city}）。"
                     )
 
-            svc = get_assistant_service()
-            target = svc.resolve_target_agent(agent, user_query)
             logger.info(
                 "ws chat message user=%s conversation_id=%s conversation_id_generated=%s "
-                "agent_request=%s resolved_target=%s user_query_len=%d",
+                "agent=%s user_query_len=%d",
                 username,
                 conversation_id,
                 conversation_id_generated,
                 agent,
-                target,
                 len(user_query),
             )
             logger.debug(
                 "ws user_query preview: %s",
                 user_query[:500].replace("\n", "\\n"),
             )
-            if target == "planner":
+            if agent == "planner":
                 notes = str(payload.get("itinerary_notes", "") or "")
                 memory_reset = bool(payload.get("planner_memory_reset"))
                 query = build_enriched_planner_query(
@@ -218,6 +230,7 @@ async def websocket_chat(websocket: WebSocket) -> None:
                     (query[-800:] if len(query) > 800 else query).replace("\n", "\\n"),
                 )
 
+            # LangChain / SQLAlchemy 等在默认线程池执行，防止阻塞其它 WebSocket 客户端
             target_agent, reply, tool_trace = await asyncio.to_thread(
                 _run_chat_and_save,
                 username,
@@ -236,7 +249,7 @@ async def websocket_chat(websocket: WebSocket) -> None:
                 len(tool_trace or []),
             )
             message_id = str(uuid.uuid4())
-            stream_cancel = asyncio.Event()
+            stream_cancel = asyncio.Event()  # 与 _stream_reply 内 drain 逻辑配合，标记是否取消当前流
             await websocket.send_json(
                 {
                     "type": "stream_start",

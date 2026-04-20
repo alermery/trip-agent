@@ -14,14 +14,16 @@
   </div>
   <main class="auth-page">
     <section class="auth-card">
-      <p class="auth-eyebrow">XIAOC ASSISTANT</p>
-      <h1>登录小C助手</h1>
+      <h1>登录</h1>
       <p>输入账号后进入多智能体对话；支持天气、地图路线、数据检索与行程规划。</p>
 
-      <label>
-        API 基地址
-        <input id="apiBase" value="http://127.0.0.1:8000">
-      </label>
+      <!-- 仍参与逻辑与默认值，仅不在界面展示（与对话页一致） -->
+      <div class="xc-endpoint-fields" aria-hidden="true">
+        <label>
+          API 基地址
+          <input id="apiBase" value="http://127.0.0.1:8000" autocomplete="off" />
+        </label>
+      </div>
       <label>
         用户名
         <input id="username" placeholder="请输入用户名">

@@ -1,13 +1,10 @@
-"""预算类工具，供规划智能体调用。"""
+# 预算类工具，供规划智能体调用。
 
 from __future__ import annotations
-
 from langchain_core.tools import tool
 
-
-@tool
+@tool(description="按总预算与天数给出交通、住宿、餐饮、门票、机动的大致占比（economy / balanced / comfort）。")
 def trip_budget_skeleton(total_budget_yuan: int, trip_days: int, style: str = "balanced") -> str:
-    """按总预算与天数给出交通、住宿、餐饮、门票、机动的大致占比（economy / balanced / comfort）。"""
     if total_budget_yuan <= 0 or trip_days <= 0:
         return "总预算与天数须为正整数。"
     st = (style or "balanced").strip().lower()

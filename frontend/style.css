@@ -110,7 +110,7 @@ body::after {
   padding-bottom: 0;
 }
 
-/* API / WS 输入框保留在 DOM 供脚本读写，不在页面展示 */
+/* API / WS 输入框保留在 DOM 供脚本读写，不在页面展示（对话侧栏、登录/注册/管理员/RAG 等页共用） */
 .xc-endpoint-fields {
   display: none;
 }

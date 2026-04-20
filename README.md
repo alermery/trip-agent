@@ -1,20 +1,19 @@
-# 小C助手
+backend.app.# 小C助手
 
-旅行场景的智能对话：**FastAPI** 后端 + 静态前端；多智能体（天气 / 地图 / 行程规划）、WebSocket 流式回复、会话与历史；模型走 **阿里云 DashScope（通义）**。
+旅行场景的智能对话：**FastAPI** 后端 + 静态前端；多智能体（天气 / 地图 / 行程规划）、WebSocket 流式回复、会话与历史；模型采用 **qwen3-32b**。
 
 ## 目录
 
-- `backend/`：后端与 `requirements.txt`、`.env.example`
+- `backend/`：后端与 `requirements.txt`、`.env`
 - `frontend/`：静态页面，无构建步骤
 
 
 ```
 小C助手/
 ├── backend/                      # FastAPI 后端工程根目录
-│   ├── .env.example              # 环境变量模板（复制为 .env）
-│   ├── .env                      # 本地密钥（勿提交；见 .gitignore）
+│   ├── .env                      # 本地环境配置
 │   ├── requirements.txt          # Python 依赖
-│   ├── chroma_db/                # Chroma 持久化目录（运行期生成；默认被 .gitignore 忽略）
+│   ├── chroma_db/                # Chroma 持久化目录
 │   └── app/
 │       ├── __init__.py
 │       ├── main.py               # FastAPI 应用：路由挂载、CORS、启动时建表与管理员引导
@@ -22,7 +21,7 @@
 │       ├── db.py                 # SQLAlchemy Engine、Session、get_db
 │       ├── security.py           # JWT 签发/解析、密码哈希与校验
 │       ├── api/                  # HTTP / WebSocket 路由层
-│       ├── agents/               # LangChain 多智能体（通义模型）
+│       ├── agents/               # LangChain 多智能体与通义模型配置
 │       ├── services/             # 业务编排与外部服务封装
 │       ├── tools/                # 供智能体调用的 LangChain Tools
 │       ├── rag/                  # 管理员上传、向量库与 Neo4j 写入
@@ -37,8 +36,8 @@
 │   ├── common.js / style.css / favicon.ico
 │   ├── assets/                   # 图片等静态资源
 │   └── vendor/                   # marked、DOMPurify 等第三方脚本
-├── README.md
-└── .gitignore
+├── README.md                     # 使用文档
+└── .gitignore                    # 不提交到git上的目录或文件
 ```
 
 ## 快速开始
@@ -63,9 +62,7 @@
 
 4. 浏览器打开 `http://127.0.0.1:5500`，API 基地址填 `http://127.0.0.1:8000`，WebSocket 为 `ws://127.0.0.1:8000/ws/chat`。
 
-停止：在对应终端按 `Ctrl+C`。
-
 ## 其他说明
 
 - 接口文档：`http://127.0.0.1:8000/docs`
-- 规划、套餐、RAG 等依赖 Neo4j、Chroma、Ollama 等时，按 `.env` 配置即可；细节以 `backend/.env.example` 与代码为准。
+- 规划、套餐、RAG 等依赖 Neo4j、Chroma、Ollama 等时，按 `.env` 配置即可。

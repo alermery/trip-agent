@@ -4,7 +4,6 @@ import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
-
 from backend.app.services.chroma_client import chroma_similarity_search
 from backend.app.services.travel_package_query import (
     query_find_best_offers,
@@ -15,17 +14,24 @@ from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
 
+_RECOMMEND_DESTINATION_CUSTOMS_DESCRIPTION = (
+    "根据用户给出的旅游目的地（省、市、地区或口语化描述），检索本地知识库中的特色风俗、节庆与非遗体验推荐。\n\n"
+    "在用户关心文化体验、民俗、节庆、地方戏曲或「有什么当地特色」时调用；"
+    "传入 destination 为目的地关键词即可，例如：香港、福建厦门、张家界、青岛。"
+)
+
+_FIND_BEST_OFFERS_DESCRIPTION = (
+    "出发地+目的地关键词+价格上限，在 Neo4j 中取性价比优先的若干条。\n\n"
+    "max_price 为检索召回上限（默认 20 万），勿与用户口头预算混为一谈。"
+)
 
 class Config:
-    """与 persist_chroma / 向量检索共用的 Chroma 集合名与路径。"""
-
+    # 与 persist_chroma / 向量检索共用的 Chroma 集合名与路径。
     collection_name = "travel_deals"
     persist_directory = str(Path(__file__).resolve().parents[2] / "chroma_db")
     similarity_threshold = 3
 
-
 CUSTOMS_CSV_PATH = Path(__file__).resolve().parents[1] / "data" / "中国各地风俗.csv"
-
 
 def _strip_admin_suffix(name: str) -> str:
     n = name.strip()
@@ -42,9 +48,8 @@ def _strip_admin_suffix(name: str) -> str:
             return n[: -len(suf)].strip()
     return n
 
-
+# 从用户或模型传入的目的地描述中提取若干地名候选。
 def _place_hints(text: str) -> list[str]:
-    """从用户或模型传入的目的地描述中提取若干地名候选。"""
     t = text.strip()
     if not t:
         return []
@@ -62,10 +67,9 @@ def _place_hints(text: str) -> list[str]:
         out.append(t)
     return out[:15]
 
-
 @lru_cache(maxsize=1)
 def _load_local_customs_rows() -> tuple[tuple[str, str], ...]:
-    """读取本地风俗 CSV：(省份, 风俗详情)，详情可为空。"""
+    # 读取本地风俗 CSV：(省份, 风俗详情)，详情可为空。
     if not CUSTOMS_CSV_PATH.is_file():
         return tuple()
     rows: list[tuple[str, str]] = []
@@ -76,7 +80,6 @@ def _load_local_customs_rows() -> tuple[tuple[str, str], ...]:
             detail = (r.get("风俗详情") or "").strip()
             rows.append((prov, detail))
     return tuple(rows)
-
 
 def _score_row(hints: list[str], province: str, detail: str) -> int:
     p_norm = _strip_admin_suffix(province)
@@ -97,14 +100,8 @@ def _score_row(hints: list[str], province: str, detail: str) -> int:
             score = max(score, 35)
     return score
 
-
-@tool
+@tool(description=_RECOMMEND_DESTINATION_CUSTOMS_DESCRIPTION)
 def recommend_destination_customs(destination: str, max_items: int = 8) -> str:
-    """根据用户给出的旅游目的地（省、市、地区或口语化描述），检索本地知识库中的特色风俗、节庆与非遗体验推荐。
-
-    在用户关心文化体验、民俗、节庆、地方戏曲或「有什么当地特色」时调用；
-    传入 destination 为目的地关键词即可，例如：香港、福建厦门、张家界、青岛。
-    """
     hints = _place_hints(destination)
     if not hints:
         return "❌ 请提供具体目的地（如省份或城市名称），以便检索风俗推荐。"
@@ -139,7 +136,6 @@ def recommend_destination_customs(destination: str, max_items: int = 8) -> str:
         lines.append(f"**{i}. 【{prov}】**\n{preview}\n")
     return "\n".join(lines)
 
-
 def _fmt_search_row(r: dict[str, Any]) -> tuple[str, str, str, str]:
     it = (r.get("itinerary") or "")[:60]
     price = r.get("price")
@@ -149,10 +145,8 @@ def _fmt_search_row(r: dict[str, Any]) -> tuple[str, str, str, str]:
     dep_loc = r.get("departure") or ""
     return it, price_s, offer, str(dep_loc)
 
-
-@tool
+@tool(description="查询旅游套餐：按出发地、可选价格上限与目的地关键词在 Neo4j 图谱中检索。")
 def search_travel_deals(departure: str, max_price: Optional[int] = None, keywords: Optional[str] = None) -> str:
-    """查询旅游套餐：按出发地、可选价格上限与目的地关键词在 Neo4j 图谱中检索。"""
     try:
         results = query_search_travel_deals(departure, max_price=max_price, keywords=keywords)
     except Exception as exc:
@@ -168,17 +162,8 @@ def search_travel_deals(departure: str, max_price: Optional[int] = None, keyword
         output += f"{i}. **{it}...**\n   💰 {price_s} | 🎁 {offer}\n\n"
     return output
 
-
-@tool
-def find_best_offers(
-    departure: str,
-    destination_keywords: str,
-    max_price: int = 200_000,
-) -> str:
-    """出发地+目的地关键词+价格上限，在 Neo4j 中取性价比优先的若干条。
-
-    max_price 为检索召回上限（默认 20 万），勿与用户口头预算混为一谈。
-    """
+@tool(description=_FIND_BEST_OFFERS_DESCRIPTION)
+def find_best_offers(departure: str, destination_keywords: str, max_price: int = 200_000,) -> str:
     try:
         results = query_find_best_offers(departure, destination_keywords, max_price=max_price)
     except Exception as exc:
@@ -199,10 +184,8 @@ def find_best_offers(
         output += f"{i}. **{it}...**\n   💰 原价:¥{price} | 🎁优惠: {offer} | 📊 评分:{score:.0f}\n\n"
     return output
 
-
-@tool
+@tool(description="按出发地与价格区间查询 Neo4j 套餐。")
 def get_travel_by_price_range(departure: str, min_price: int, max_price: int) -> str:
-    """按出发地与价格区间查询 Neo4j 套餐。"""
     try:
         results = query_travel_by_price_range(departure, min_price, max_price)
     except Exception as exc:
@@ -220,10 +203,8 @@ def get_travel_by_price_range(departure: str, min_price: int, max_price: int) ->
         output += f"• {it}... ¥{price} {offer}\n"
     return output
 
-
-@tool
+@tool(description="检索 Chroma 集合 travel_deals（与 Neo4j 套餐配套的向量库）。")
 def vector_store_retriever(query: str) -> str:
-    """检索 Chroma 集合 travel_deals（与 Neo4j 套餐配套的向量库）。"""
     try:
         results = chroma_similarity_search(
             Config.collection_name,

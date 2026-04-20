@@ -1,14 +1,11 @@
 from __future__ import annotations
-
 from langchain_core.documents import Document
-
 from backend.app.rag.models import TravelListing
 from backend.app.services.chroma_client import chroma_add_documents
 from backend.app.tools.get_travel_details import Config
 
-
+# 写入与 vector_store_retriever 相同的 Chroma 集合。
 def write_listings_to_chroma(items: list[TravelListing]) -> int:
-    """写入与 vector_store_retriever 相同的 Chroma 集合。"""
     if not items:
         return 0
 

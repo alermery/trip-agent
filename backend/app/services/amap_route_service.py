@@ -1,16 +1,12 @@
-"""高德驾车路径规划：地理编码 + 路线折线，供 REST API 与 LangChain 工具复用。"""
+# 高德驾车路径规划：地理编码 + 路线折线，供 REST API 与 LangChain 工具复用。
 
 from __future__ import annotations
-
 import re
 from typing import Any
-
 import requests
-
 from backend.app.config import settings
 
 _COORD_RE = re.compile(r"^\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*$")
-
 
 def _require_key() -> str:
     key = settings.AMAP_API_KEY
@@ -18,9 +14,8 @@ def _require_key() -> str:
         raise ValueError("未配置 AMAP_API_KEY")
     return key
 
-
+# 将地址或「经度,纬度」解析为 (lng, lat, 展示名)。
 def resolve_location(text: str) -> tuple[float, float, str]:
-    """将地址或「经度,纬度」解析为 (lng, lat, 展示名)。"""
     raw = (text or "").strip()
     if not raw:
         raise ValueError("地点不能为空")
@@ -43,7 +38,6 @@ def resolve_location(text: str) -> tuple[float, float, str]:
     name = geo.get("formatted_address") or raw
     return lng, lat, name
 
-
 def _points_from_polyline_string(pl: str) -> list[list[float]]:
     pts: list[list[float]] = []
     for seg in (pl or "").split(";"):
@@ -56,7 +50,6 @@ def _points_from_polyline_string(pl: str) -> list[list[float]]:
         except ValueError:
             continue
     return pts
-
 
 def _parse_route_polylines(route: dict[str, Any]) -> list[list[float]]:
     points: list[list[float]] = []
@@ -71,13 +64,8 @@ def _parse_route_polylines(route: dict[str, Any]) -> list[list[float]]:
         return _points_from_polyline_string(top)
     return []
 
-
-def compute_driving_route(
-    origin: str,
-    destination: str,
-    strategy: str = "0",
-) -> dict[str, Any]:
-    """调用高德驾车路径规划，返回前端可用的折线与概要。"""
+# 调用高德驾车路径规划，返回前端可用的折线与概要。
+def compute_driving_route(origin: str, destination: str, strategy: str = "0",) -> dict[str, Any]:
     olng, olat, oname = resolve_location(origin)
     dlng, dlat, dname = resolve_location(destination)
 
@@ -121,9 +109,8 @@ def compute_driving_route(
         "strategy": str(strategy or "0"),
     }
 
-
+# 供 LangChain 工具返回可读文本。
 def driving_route_as_text(start: str, end: str, strategy: str = "0") -> str:
-    """供 LangChain 工具返回可读文本。"""
     try:
         r = compute_driving_route(start, end, strategy)
         km = r["distance_m"] / 1000

@@ -1,4 +1,4 @@
-"""从 LangChain Agent 的 invoke 结果中提取工具返回，供前端展示。"""
+# 从 LangChain Agent 的 invoke 结果中提取工具返回，供前端展示。
 
 from __future__ import annotations
 
