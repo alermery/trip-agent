@@ -60,8 +60,6 @@ backend.app.# 小C助手
    python -m http.server 5500
    ```
 
-4. 浏览器打开 `http://127.0.0.1:5500`，API 基地址填 `http://127.0.0.1:8000`，WebSocket 为 `ws://127.0.0.1:8000/ws/chat`。
-
 ## 其他说明
 
 - 接口文档：`http://127.0.0.1:8000/docs`
