@@ -7,14 +7,13 @@
   <link rel="icon" type="image/png" href="./favicon.ico">
   <link rel="stylesheet" href="./style.css">
 </head>
-<body>
+<body class="auth-bg-page">
   <div class="auth-corner">
     <a class="link-btn" href="./admin-login.html">管理员</a>
-    <a class="link-btn" href="./register.html">去注册</a>
   </div>
   <main class="auth-page">
     <section class="auth-card">
-      <h1>登录</h1>
+      <h1>登录--小C助手</h1>
       <p>输入账号后进入多智能体对话；支持天气、地图路线、数据检索与行程规划。</p>
 
       <!-- 仍参与逻辑与默认值，仅不在界面展示（与对话页一致） -->
@@ -33,8 +32,9 @@
         <input id="password" type="password" placeholder="请输入密码">
       </label>
 
-      <div class="btn-row">
-        <button id="loginBtn" class="btn">登录</button>
+      <div class="btn-row btn-row--dual">
+        <button id="loginBtn" class="btn" type="button">登录</button>
+        <button id="registerBtn" class="btn" type="button">注册</button>
       </div>
       <p id="hint" class="hint"></p>
     </section>
