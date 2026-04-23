@@ -688,7 +688,7 @@ function connect(auto = false) {
         if (data.message === "auth ok") {
           setStatus("已连接", true);
           if (reconnectTimer) clearTimeout(reconnectTimer);
-          addMessage("鉴权成功，可以开始提问。", "system");
+          addMessage("登录成功，可以开始你的对话了！", "system");
         } else {
           addMessage(data.message, "system");
         }
