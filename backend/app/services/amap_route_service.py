@@ -116,10 +116,10 @@ def driving_route_as_text(start: str, end: str, strategy: str = "0") -> str:
         km = r["distance_m"] / 1000
         mins = r["duration_s"] // 60
         return (
-            f"🛣️ **市内驾车路线**：{r['origin']['name']} → {r['destination']['name']}\n"
+            f"**市内驾车路线**：{r['origin']['name']} → {r['destination']['name']}\n"
             f"约 **{km:.1f} km**，预计 **{mins} 分钟**（高德 Web 服务驾车规划）。"
         )
     except ValueError as e:
-        return f"❌ {e}"
+        return f"[错误] {e}"
     except Exception as e:
-        return f"❌ 路线规划异常：{e}"
+        return f"[错误] 路线规划异常：{e}"

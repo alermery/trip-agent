@@ -24,9 +24,9 @@ def geocode_lonlat(address: str) -> Optional[str]:
 def geocode_address(address: str) -> str:
     geo = _geocode_first(address)
     if not geo:
-        return f"\u274c 未找到 '{address}'"
+        return f"[错误] 未找到 '{address}'"
     lonlat = geo["location"].split(",")
-    return f"\U0001f4cd {geo['formatted_address']}\n经度:{lonlat[0]} 纬度:{lonlat[1]}"
+    return f"[位置] {geo['formatted_address']}\n经度:{lonlat[0]} 纬度:{lonlat[1]}"
 
 def nearby_places(location: str, radius: int = 1000) -> str:
     # 根据经纬度坐标获取周边兴趣点。
@@ -40,7 +40,7 @@ def nearby_places(location: str, radius: int = 1000) -> str:
     resp = requests.get("https://restapi.amap.com/v3/place/around", params=params, timeout=10)
     data = resp.json()
     if data.get("status") != "1":
-        return f"\u274c 周边检索失败: {data.get('info', '未知错误')}"
+        return f"[错误] 周边检索失败: {data.get('info', '未知错误')}"
 
     pois = data.get("pois", [])
     if not pois:
