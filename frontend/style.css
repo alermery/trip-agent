@@ -454,7 +454,6 @@ body.chat-page .tool-sidebar .offline {
   padding-bottom: 0;
 }
 
-/* API / WS 输入框保留在 DOM 供脚本读写，不在页面展示（对话侧栏、登录/注册/管理员/RAG 等页共用） */
 .xc-endpoint-fields {
   display: none;
 }
@@ -676,7 +675,6 @@ select:focus {
   gap: 12px;
 }
 
-/* 顶栏左侧「C」标识图：浅色衬底与手绘纸质底融合，适配深色顶栏 */
 .xc-mark-img {
   width: 40px;
   height: 40px;
@@ -789,9 +787,9 @@ select:focus {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  max-width: min(72%, 640px);
+  width: 100%;
+  max-width: 100%;
   box-shadow: var(--xc-shadow);
-  /* 覆盖 .msg 的 pre-wrap，避免子树里的 HTML 被当成预格式纯文本排版 */
   white-space: normal;
 }
 
@@ -871,7 +869,6 @@ select:focus {
   color: var(--xc-text);
 }
 
-/* 不依赖 :has()（旧内核无 :has 时 Markdown 会一直像纯文本） */
 .msg.bot > .msg-bubble.msg-bubble--md {
   white-space: normal;
 }

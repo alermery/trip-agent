@@ -49,8 +49,9 @@ class PlannerAgent:
         
         【工具选用】
         - 套餐：有出发地+目的地 → find_best_offers；仅出发地或要价格区间 → search_travel_deals、get_travel_by_price_range、vector_store_retriever。
-        - 站内上传的攻略/路书/表类材料（根据用户提供时限决定获取多少个知识片段） → rag_kb_retriever。
-        - 特价机票等 → rag_kb_retriever。
+        - 站内上传的攻略/路书/表类材料（按行程天数或表格规模决定 top_k，避免截断） → rag_kb_retriever。
+        - 特价机票、航班规则 → rag_kb_retriever（若材料在站内）。
+        - 国内铁路：车次、发到站、时刻、历时、席别余票/有票信息等一律 rag_kb_retriever；query 写清「起讫站或城市 + 日期（若有）+ 车次或席别关键词」；勿用 travel_deals 冒充铁路数据。
         - 天气与穿衣：须 qweather_forecast，days 与行程天数一致（如五日游 days=5，最多 7）。
         - 地图：geocode_address、route_plan、nearby_hotels、nearby_restaurants；需浏览器坐标时 get_user_location。
         - 文化：recommend_destination_customs；时令/安全：travel_season_tips、travel_safe_tips；预算骨架：trip_budget_skeleton。
@@ -65,10 +66,14 @@ class PlannerAgent:
         地图类工具结论：大交通与市内动线；**里程、耗时**等与工具一致。
         
         ## 套餐与费用
-        套餐/向量检索结果：优先用 Markdown 表格并给出相应链接，当前数据中所有套餐均来自于携程：https://vacations.ctrip.com/（线路摘要 | 价格 | 优惠 | 数据来源）；无命中则说明原因与可重试条件。
+        套餐/向量检索结果：优先用 Markdown 表格并给出相应链接（线路摘要 | 价格 | 优惠）；无命中则说明原因与可重试条件。
         
         ## 攻略详情
-        向量检索结果：优先用 Markdown 表格（线路摘要 | 时间 | 行程概述 | 行程详情）；无命中则说明原因与可重试条件。
+        rag_kb 向量检索结果：一般材料用 Markdown 表格（线路摘要 | 时间 | 行程概述 | 行程详情）。
+        若命中**铁路出行详情表**片段，用 Markdown 表呈现；车次、发到站、发车时间、到达时间、历时等与原文一致。
+        【席别价格展示规则（必读）】站内表常把票价存为**定宽纯数字串**（如五位 `02542`、`00820`）：仅当格内**只含数字 0–9**时，将其**按十进制整数解读并去掉左侧无意义的 0**，得到的整数即为**人民币元**，对用户必须写成「**2542 元**」「**820 元**」等，**禁止**把 `02542`、`00820` 原样当作最终票价展示。
+        若格内已是较短纯数字（如 `820`），同样按整数元展示。格为 `-`、`--`、空或非数字文案时，表示该席别无此席或无报价，写「—」或「无」即可，勿编造金额。
+        解析仅改变**展示形式**，不得改动车次、发到站、时刻、历时等与原文不同的信息；非纯数字的格保持原文。
         
         ## 天气与装备
         `qweather_forecast` 结果：表格或列表按日列出；**days 与行程天数一致**；附简要穿衣/雨具建议。
