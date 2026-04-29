@@ -7,16 +7,16 @@ from backend.app.tools import NoTool
 
 AMAP_API_KEY = settings.AMAP_API_KEY
 
-_ERR = "\u274c "
-_PIN = "\U0001f4cd "
-_HOTEL = "\U0001f3e8"
-_FOOD = "\U0001f37d\ufe0f"
-_CITY = "\U0001f3d9\ufe0f"
-_BED = "\U0001f6cf\ufe0f"
-_BULB = "\U0001f4a1"
-_GLOBE = "\U0001f310"
+_ERR = "[错误] "
 
-def _nearby_typed_places(location_label: str, location_coord: str, radius: int, types: str, type_keywords: tuple[str, ...], emoji: str, noun: str,) -> str:
+def _nearby_typed_places(
+    location_label: str,
+    location_coord: str,
+    radius: int,
+    types: str,
+    type_keywords: tuple[str, ...],
+    noun: str,
+) -> str:
     params = {
         "key": AMAP_API_KEY,
         "location": location_coord,
@@ -34,7 +34,7 @@ def _nearby_typed_places(location_label: str, location_coord: str, radius: int, 
     rows: list[str] = []
     for p in places:
         if any(kw in p.get("type", "") for kw in type_keywords):
-            rows.append(f"{emoji} {p['name']} ({p['distance']}米)\n   地址: {p['address']}\n")
+            rows.append(f"- {p['name']} ({p['distance']}米)\n   地址: {p['address']}\n")
     if not rows:
         return f"{_ERR}{location_label}附近{radius}米内未找到相关{noun}。"
     return f"在 {location_label} 附近{radius}米内的{noun}:\n" + "\n".join(rows[:10])
@@ -58,7 +58,6 @@ def nearby_hotels(location: str, radius: int = 1000) -> str:
         radius,
         "住宿服务|宾馆酒店|旅馆客栈|度假村",
         ("住宿服务", "宾馆酒店", "旅馆客栈", "度假村"),
-        _HOTEL,
         "酒店住宿",
     )
 
@@ -73,7 +72,6 @@ def nearby_restaurants(location: str, radius: int = 5000) -> str:
         radius,
         "餐饮服务|中餐厅|外国餐厅|快餐厅|茶座|咖啡厅",
         ("餐饮服务", "中餐厅", "外国餐厅", "快餐厅", "茶座", "咖啡厅"),
-        _FOOD,
         "餐饮场所",
     )
 
@@ -103,10 +101,10 @@ def reverse_geocode(lat: float, lon: float) -> str:
         city = regeo["addressComponent"]["city"]
         nearby = NoTool.nearby_places(f"{lon},{lat}", 1000)
         return (
-            f"{_PIN} **你当前位于：{address}**\n\n"
-            f"{_CITY}  城市：{city}\n"
-            f"{_BED}  附近酒店：\n{nearby}\n\n"
-            f"{_BULB} **建议**：查看{city}天气和酒店详情？"
+            f"**当前位置：{address}**\n\n"
+            f"城市：{city}\n"
+            f"附近酒店：\n{nearby}\n\n"
+            f"**建议**：查看{city}天气和酒店详情？"
         )
     return f"{_ERR}坐标解析失败"
 
@@ -117,7 +115,7 @@ def ip_geolocation(ip: str) -> str:
         data = resp.json()
         if data["status"] == "success":
             return (
-                f"{_GLOBE} **IP定位：{data['city']}, {data['regionName']}**\n"
+                f"**IP定位：{data['city']}, {data['regionName']}**\n"
                 f"坐标：{data['lat']}, {data['lon']}"
             )
     except Exception:
@@ -126,4 +124,4 @@ def ip_geolocation(ip: str) -> str:
 
 def simulate_location() -> str:
     # 前端未传坐标时的模拟。
-    return f"{_PIN} **默认位置：北京市朝阳区**\n{_BULB} 请授权浏览器定位获取精确位置"
+    return "**默认位置：北京市朝阳区**\n请授权浏览器定位获取精确位置"

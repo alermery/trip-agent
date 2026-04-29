@@ -1,7 +1,9 @@
-# WebSocket 聊天：鉴权、调用智能体、流式分片回复并支持客户端取消。
+# WebSocket 聊天：鉴权、调用智能体、LangGraph values 流式增量推送并支持客户端取消。
 
 import asyncio
 import logging
+import queue
+import threading
 import uuid
 from datetime import datetime
 from typing import cast
@@ -32,27 +34,19 @@ def _parse_started_at(raw_value: str) -> datetime:
         return datetime.utcnow()
 
 
-def _run_chat_and_save(
+def _save_chat_message(
     username: str,
     user_query: str,
-    model_query: str,
-    agent: AgentType,
+    reply: str,
+    target_agent: AgentType,
     conversation_id: str,
     conversation_started_at: datetime,
-) -> tuple[str, str, list[dict[str, str]]]:
-    # 同步执行 LLM 对话并写入 chat_messages；由 asyncio.to_thread 在线程池中调用，避免阻塞事件循环。
-    service = get_assistant_service()
+) -> None:
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.username == username).first()
         if not user:
             raise ValueError("User not found")
-        target_agent, reply, tool_trace = service.chat(
-            model_query,
-            agent,
-            username=username,
-            conversation_id=conversation_id,
-        )
         db.add(
             ChatMessage(
                 user_id=user.id,
@@ -64,24 +58,84 @@ def _run_chat_and_save(
             )
         )
         db.commit()
-        return target_agent, reply, tool_trace
     finally:
         db.close()
 
 
-async def _stream_reply(
+def _queue_poll(q: queue.Queue, timeout: float) -> dict | None:
+    try:
+        return q.get(timeout=timeout)
+    except queue.Empty:
+        return None
+
+
+def _apply_remaining_queue(
+    q: queue.Queue,
+    acc_full: str,
+) -> str:
+    while True:
+        try:
+            it = q.get_nowait()
+        except queue.Empty:
+            break
+        kind = it.get("kind")
+        if kind == "delta":
+            acc_full += str(it.get("delta") or "")
+        elif kind == "done":
+            acc_full = str(it.get("full") or acc_full)
+        elif kind == "error":
+            err = str(it.get("message") or "")
+            acc_full += f"\n\n（错误：{err}）"
+    return acc_full
+
+
+# 取消检测：短超时读一条 JSON；收到针对当前 message_id 的 cancel 则置位 cancel_requested 并返回 True。
+_CANCEL_POLL_QUICK = 0.001
+
+
+def _chat_stream_producer(
+    q: queue.Queue,
+    username: str,
+    model_query: str,
+    agent: AgentType,
+    conversation_id: str,
+    cancel_requested: threading.Event,
+) -> None:
+    try:
+        service = get_assistant_service()
+        prev_full = ""
+        for full_text, _ in service.chat_stream(
+            model_query,
+            agent,
+            username=username,
+            conversation_id=conversation_id,
+            cancel_requested=cancel_requested,
+        ):
+            if cancel_requested.is_set():
+                break
+            delta = full_text[len(prev_full) :]
+            prev_full = full_text
+            if delta:
+                q.put({"kind": "delta", "delta": delta})
+        q.put({"kind": "done", "full": prev_full})
+    except Exception as e:
+        logger.exception("chat stream producer failed")
+        q.put({"kind": "error", "message": str(e)})
+
+
+async def _pump_agent_stream_to_websocket(
     websocket: WebSocket,
     message_id: str,
-    text: str,
-    *,
-    cancel_event: asyncio.Event,
+    q: queue.Queue,
+    producer_thread: threading.Thread,
     incoming_queue: list,
-) -> bool:
-    # 流式输出：按固定步长切片发送；轮询收包以支持客户端 cancel。返回 True 表示发完，False 表示被中断。
-    step = 24  # 每包字符数，兼顾实时性与消息条数
+    cancel_requested: threading.Event,
+) -> tuple[bool, str, bool]:
+    # (正常收到 done, 完整正文, 用户中途 cancel)；取消时不 join 生产者，以便立刻发 stream_end。
+    acc_full = ""
+    user_cancelled = False
 
-    async def drain_cancel_or_buffer(timeout: float) -> bool:
-        # 短超时读一条 JSON：若是针对当前 message_id 的 cancel 则返回 True；否则放入 incoming_queue 供主循环处理。
+    async def drain_cancel(timeout: float) -> bool:
         try:
             msg = await asyncio.wait_for(websocket.receive_json(), timeout=timeout)
         except asyncio.TimeoutError:
@@ -92,32 +146,70 @@ async def _stream_reply(
         if msg.get("type") == "cancel":
             mid = str(msg.get("message_id") or "")
             if not mid or mid == message_id:
-                cancel_event.set()
+                cancel_requested.set()
                 return True
             incoming_queue.append(msg)
             return False
         incoming_queue.append(msg)
         return False
 
-    # 首包前短等，便于客户端在 stream_start 后立即发 cancel
-    if await drain_cancel_or_buffer(0.12):
-        return False
+    if await drain_cancel(0.12):
+        user_cancelled = True
+    else:
+        while True:
+            if await drain_cancel(_CANCEL_POLL_QUICK):
+                user_cancelled = True
+                break
+            item = await asyncio.to_thread(_queue_poll, q, 0.06)
+            if item is None:
+                if await drain_cancel(0.02):
+                    user_cancelled = True
+                    break
+                if not producer_thread.is_alive() and q.empty():
+                    logger.warning(
+                        "chat stream producer stopped without done (message_id=%s)",
+                        message_id,
+                    )
+                    break
+                continue
+            kind = item.get("kind")
+            if kind == "delta":
+                d = str(item.get("delta") or "")
+                if d:
+                    acc_full += d
+                    await websocket.send_json(
+                        {
+                            "type": "stream_chunk",
+                            "message_id": message_id,
+                            "chunk": d,
+                        }
+                    )
+                if await drain_cancel(_CANCEL_POLL_QUICK):
+                    user_cancelled = True
+                    break
+            elif kind == "done":
+                acc_full = str(item.get("full") or acc_full)
+                return True, acc_full, False
+            elif kind == "error":
+                err = str(item.get("message") or "")
+                extra = f"\n\n（错误：{err}）"
+                acc_full += extra
+                await websocket.send_json(
+                    {
+                        "type": "stream_chunk",
+                        "message_id": message_id,
+                        "chunk": extra,
+                    }
+                )
+                return True, acc_full, False
 
-    for i in range(0, len(text), step):
-        if cancel_event.is_set():
-            return False
-        chunk = text[i : i + step]
-        await websocket.send_json(
-            {
-                "type": "stream_chunk",
-                "message_id": message_id,
-                "chunk": chunk,
-            }
-        )
-        if await drain_cancel_or_buffer(0.05):
-            return False
-        await asyncio.sleep(0.02)
-    return True
+    if user_cancelled:
+        acc_full = _apply_remaining_queue(q, acc_full)
+        return False, acc_full, True
+
+    await asyncio.to_thread(producer_thread.join)
+    acc_full = _apply_remaining_queue(q, acc_full)
+    return False, acc_full, False
 
 
 @router.websocket("/ws/chat")
@@ -230,54 +322,67 @@ async def websocket_chat(websocket: WebSocket) -> None:
                     (query[-800:] if len(query) > 800 else query).replace("\n", "\\n"),
                 )
 
-            # LangChain / SQLAlchemy 等在默认线程池执行，防止阻塞其它 WebSocket 客户端
-            target_agent, reply, tool_trace = await asyncio.to_thread(
-                _run_chat_and_save,
-                username,
-                user_query,
-                query,
-                agent,
-                conversation_id,
-                conversation_started_at,
-            )
-            logger.info(
-                "chat done user=%s conversation_id=%s target_agent=%s reply_len=%d tool_events=%d",
-                username,
-                conversation_id,
-                target_agent,
-                len(reply or ""),
-                len(tool_trace or []),
-            )
             message_id = str(uuid.uuid4())
-            stream_cancel = asyncio.Event()  # 与 _stream_reply 内 drain 逻辑配合，标记是否取消当前流
             await websocket.send_json(
                 {
                     "type": "stream_start",
                     "message_id": message_id,
-                    "agent": target_agent,
+                    "agent": agent,
                 }
             )
-            if tool_trace:
-                await websocket.send_json(
-                    {
-                        "type": "tool_trace",
-                        "message_id": message_id,
-                        "tools": tool_trace,
-                    }
-                )
-            completed = await _stream_reply(
+
+            cancel_requested = threading.Event()
+            q: queue.Queue = queue.Queue()
+            producer_thread = threading.Thread(
+                target=_chat_stream_producer,
+                args=(q, username, query, agent, conversation_id, cancel_requested),
+                daemon=True,
+            )
+            producer_thread.start()
+
+            got_done, reply, user_cancelled = await _pump_agent_stream_to_websocket(
                 websocket,
                 message_id,
-                reply,
-                cancel_event=stream_cancel,
-                incoming_queue=incoming_queue,
+                q,
+                producer_thread,
+                incoming_queue,
+                cancel_requested,
             )
+
             await websocket.send_json(
                 {
                     "type": "stream_end",
                     "message_id": message_id,
-                    "cancelled": not completed,
+                    "cancelled": user_cancelled,
                 }
+            )
+
+            try:
+                await asyncio.to_thread(
+                    _save_chat_message,
+                    username,
+                    user_query,
+                    reply,
+                    agent,
+                    conversation_id,
+                    conversation_started_at,
+                )
+            except Exception:
+                logger.exception(
+                    "save chat failed user=%s conversation_id=%s",
+                    username,
+                    conversation_id,
+                )
+
+            logger.info(
+                "chat done user=%s conversation_id=%s target_agent=%s reply_len=%d "
+                "stream_done=%s cancelled=%s",
+                username,
+                conversation_id,
+                agent,
+                len(reply or ""),
+                got_done,
+                user_cancelled,
             )
     except WebSocketDisconnect:
         return

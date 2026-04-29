@@ -588,7 +588,7 @@ function appendStreamChunk(messageId, chunk) {
       info.mdFlushTimer = null;
       renderBotBubbleContent(info.bubble, info.rolling);
       messagesEl.scrollTop = messagesEl.scrollHeight;
-    }, 100);
+    }, 48);
   } else {
     info.bubble.textContent = info.rolling;
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -832,8 +832,12 @@ if (pauseReplyBtn) {
     if (!activeStreamMessageId || !ws || ws.readyState !== WebSocket.OPEN) {
       return;
     }
-    ws.send(JSON.stringify({ type: "cancel", message_id: activeStreamMessageId }));
+    const mid = activeStreamMessageId;
+    ws.send(JSON.stringify({ type: "cancel", message_id: mid }));
     pauseReplyBtn.disabled = true;
+    endStreamMessage(mid, true);
+    activeStreamMessageId = null;
+    setComposerState("idle");
   });
 }
 newChatBtn.addEventListener("click", () => createConversation("新对话"));

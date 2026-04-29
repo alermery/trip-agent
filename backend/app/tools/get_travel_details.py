@@ -104,12 +104,12 @@ def _score_row(hints: list[str], province: str, detail: str) -> int:
 def recommend_destination_customs(destination: str, max_items: int = 8) -> str:
     hints = _place_hints(destination)
     if not hints:
-        return "❌ 请提供具体目的地（如省份或城市名称），以便检索风俗推荐。"
+        return "[错误] 请提供具体目的地（如省份或城市名称），以便检索风俗推荐。"
 
     rows = _load_local_customs_rows()
     if not rows:
         return (
-            "❌ 未找到本地风俗数据文件。"
+            "[错误] 未找到本地风俗数据文件。"
             f"请将「中国各地风俗.csv」放在：{CUSTOMS_CSV_PATH}"
         )
 
@@ -126,11 +126,11 @@ def recommend_destination_customs(destination: str, max_items: int = 8) -> str:
 
     if not top:
         return (
-            f"📚 知识库中暂无与「{destination}」匹配度较高的风俗条目。"
+            f"知识库中暂无与「{destination}」匹配度较高的风俗条目。"
             "可尝试改用省级名称（如福建、湖南）或具体城市名再查。"
         )
 
-    lines = [f"🎭 **{destination.strip()} · 特色风俗与体验推荐**（知识库节选，共 {len(top)} 条）\n"]
+    lines = [f"**{destination.strip()} · 特色风俗与体验推荐**（知识库节选，共 {len(top)} 条）\n"]
     for i, (_s, prov, detail) in enumerate(top, 1):
         preview = detail if len(detail) <= 1200 else detail[:1200] + "……（节选）"
         lines.append(f"**{i}. 【{prov}】**\n{preview}\n")
@@ -151,15 +151,15 @@ def search_travel_deals(departure: str, max_price: Optional[int] = None, keyword
         results = query_search_travel_deals(departure, max_price=max_price, keywords=keywords)
     except Exception as exc:
         logger.exception("search_travel_deals failed")
-        return f"❌ 套餐检索失败：{exc}"
+        return f"[错误] 套餐检索失败：{exc}"
 
     if not results:
-        return f"❌ {departure}出发暂无合适旅游套餐"
+        return f"[错误] {departure}出发暂无合适旅游套餐"
 
-    output = f"✈️ **{departure}出发旅游推荐**（最多 10 条）:\n\n"
+    output = f"**{departure}出发旅游推荐**（最多 10 条）:\n\n"
     for i, r in enumerate(results, 1):
         it, price_s, offer, _ = _fmt_search_row(r)
-        output += f"{i}. **{it}...**\n   💰 {price_s} | 🎁 {offer}\n\n"
+        output += f"{i}. **{it}...**\n   价格: {price_s} | 优惠: {offer}\n\n"
     return output
 
 @tool(description=_FIND_BEST_OFFERS_DESCRIPTION)
@@ -168,20 +168,20 @@ def find_best_offers(departure: str, destination_keywords: str, max_price: int =
         results = query_find_best_offers(departure, destination_keywords, max_price=max_price)
     except Exception as exc:
         logger.exception("find_best_offers failed")
-        return f"❌ 套餐检索失败：{exc}"
+        return f"[错误] 套餐检索失败：{exc}"
 
     if not results:
         return (
-            f"❌ {departure} → {destination_keywords} 未检索到符合条件的套餐（已按价格条件过滤，未命中结果）。"
+            f"[错误] {departure} → {destination_keywords} 未检索到符合条件的套餐（已按价格条件过滤，未命中结果）。"
         )
 
-    output = f"🥇 **{departure} → {destination_keywords} 性价比推荐**（最多 5 条）:\n\n"
+    output = f"**{departure} → {destination_keywords} 性价比推荐**（最多 5 条）:\n\n"
     for i, r in enumerate(results, 1):
         it = (r.get("itinerary") or "")[:70]
         price = r.get("price")
         offer = r.get("offer") or "无"
         score = float(r.get("score") or 0)
-        output += f"{i}. **{it}...**\n   💰 原价:¥{price} | 🎁优惠: {offer} | 📊 评分:{score:.0f}\n\n"
+        output += f"{i}. **{it}...**\n   原价: ¥{price} | 优惠: {offer} | 评分: {score:.0f}\n\n"
     return output
 
 @tool(description="按出发地与价格区间查询 Neo4j 套餐。")
@@ -190,17 +190,17 @@ def get_travel_by_price_range(departure: str, min_price: int, max_price: int) ->
         results = query_travel_by_price_range(departure, min_price, max_price)
     except Exception as exc:
         logger.exception("get_travel_by_price_range failed")
-        return f"❌ 套餐检索失败：{exc}"
+        return f"[错误] 套餐检索失败：{exc}"
 
     if not results:
-        return f"❌ {departure} {min_price}-{max_price}元区间无套餐"
+        return f"[错误] {departure} {min_price}-{max_price}元区间无套餐"
 
-    output = f"💰 **{departure} ¥{min_price}-{max_price}套餐** ({len(results)}个):\n\n"
+    output = f"**{departure} ¥{min_price}-{max_price}套餐** ({len(results)}个):\n\n"
     for r in results[:10]:
         it = (r.get("itinerary") or "")[:60]
         price = r.get("price")
         offer = r.get("offer") or ""
-        output += f"• {it}... ¥{price} {offer}\n"
+        output += f"- {it}... ¥{price} {offer}\n"
     return output
 
 @tool(description="检索 Chroma 集合 travel_deals（与 Neo4j 套餐配套的向量库）。")

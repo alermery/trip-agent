@@ -1,6 +1,7 @@
 # 对话编排服务：按用户显式选择的智能体类型调用天气 / 地图 / 行程智能体。
 
 import logging
+import threading
 from functools import lru_cache
 
 from backend.app.agents.agent_for_map import MapAgent
@@ -46,6 +47,38 @@ class AssistantService:
         )
         text, tools = self._planner.planner_assistant(query, history_messages=hist)
         return "planner", text, tools
+
+    def chat_stream(
+        self,
+        query: str,
+        agent: AgentType,
+        *,
+        username: str | None = None,
+        conversation_id: str | None = None,
+        cancel_requested: threading.Event | None = None,
+    ):
+        # 与 chat 相同路由，但以 LangGraph values 流式产出 (完整 assistant 文本)；第二项恒为 [] 以保持接口兼容。
+        if agent == "weather":
+            yield from self._weather.weather_assistant_stream(
+                query, cancel_requested=cancel_requested
+            )
+            return
+        if agent == "map":
+            yield from self._map.map_assistant_stream(query, cancel_requested=cancel_requested)
+            return
+        hist: list = []
+        if username and conversation_id:
+            hist = build_planner_history_messages(username, conversation_id)
+        logger.info(
+            "AssistantService.chat_stream planner user=%s conversation_id=%s history_lc_messages=%d query_len=%d",
+            username or "",
+            conversation_id or "",
+            len(hist),
+            len(query or ""),
+        )
+        yield from self._planner.planner_assistant_stream(
+            query, history_messages=hist, cancel_requested=cancel_requested
+        )
 
 
 @lru_cache

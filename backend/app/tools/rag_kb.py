@@ -1,5 +1,3 @@
-# 管理员上传至 rag_kb 集合后的向量检索工具。
-
 from langchain_core.tools import tool
 from backend.app.rag.chroma_rag_kb import search_rag_kb
 

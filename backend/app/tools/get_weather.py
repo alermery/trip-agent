@@ -13,7 +13,7 @@ QWEATHER_HOST = settings.QWEATHER_HOST
 )
 def qweather_forecast(city: str = "北京", days: int = 7) -> str:
     if not QWEATHER_API_KEY:
-        return "❌ 配置错误：请设置 QWEATHER_API_KEY"
+        return "[错误] 配置错误：请设置 QWEATHER_API_KEY"
 
     nd = max(1, min(int(days), 7))
 
@@ -27,13 +27,37 @@ def qweather_forecast(city: str = "北京", days: int = 7) -> str:
 
         if data.get("code") == "200":
             daily = data["daily"][:nd]
-            forecast = f"📅 **{city} {nd}天天气预报**:\n\n"
+            forecast = f"**{city} {nd}天天气预报**（数据来源：和风天气）\n\n"
+
             for day in daily:
-                forecast += f"• {day['fxDate']}: {day['textDay']} | "
-                forecast += f"高{day['tempMax']}°C 低{day['tempMin']}°C\n"
+                date = day['fxDate']
+                # 白天天气和温度
+                text_day = day['textDay']
+                temp_max = day['tempMax']
+                temp_min = day['tempMin']
+                # 夜间天气
+                text_night = day['textNight']
+                # 湿度、紫外线、降水概率
+                humidity = day.get('humidity', '—')
+                uv_index = day.get('uvIndex', '—')
+                precip = day.get('precip', '0')  # 降水量 mm
+                # 风向风力（白天）
+                wind_dir = day.get('windDirDay', '—')
+                wind_scale = day.get('windScaleDay', '—')
+                # 日出日落
+                sunrise = day.get('sunrise', '—')
+                sunset = day.get('sunset', '—')
+
+                forecast += (
+                    f" {date}\n"
+                    f" 白天：{text_day} {temp_max}°C / 夜间：{text_night} {temp_min}°C\n"
+                    f" 湿度：{humidity}%  | 紫外线：{uv_index} | 降水：{precip}mm\n"
+                    f" 风向：{wind_dir} {wind_scale}级\n"
+                    f" 日出 {sunrise} 日落 {sunset}\n\n"
+                )
             return forecast
         else:
-            return f"❌ 预报错误 [{data.get('code')}]: {data.get('message')}"
+            return f"[错误] 预报错误 [{data.get('code')}]: {data.get('message')}"
 
     except Exception as e:
-        return f"❌ 请求失败: {str(e)}"
+        return f"[错误] 请求失败: {str(e)}"

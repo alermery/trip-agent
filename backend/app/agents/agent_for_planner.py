@@ -1,7 +1,9 @@
+import threading
+
 from langchain.agents import create_agent
 from langchain_core.messages import BaseMessage, HumanMessage
-from backend.app.agents.tongyi_llm import get_chat_tongyi
-from backend.app.services.tool_trace import extract_tool_traces_from_lc_messages
+from backend.app.agents.tongyi_llm import get_chat_tongyi, get_chat_ollama
+from backend.app.services.agent_stream_tokens import iter_agent_text_token_deltas
 from backend.app.tools.get_map import (
     geocode_address,
     get_user_location,
@@ -20,7 +22,6 @@ from backend.app.tools.get_travel_details import (
 from backend.app.tools.get_weather import qweather_forecast
 from backend.app.tools.rag_kb import rag_kb_retriever
 from backend.app.tools.trip_agents_tools import trip_budget_skeleton
-
 
 class PlannerAgent:
     def __init__(self):
@@ -80,6 +81,9 @@ class PlannerAgent:
         
         ## 文化与提示
         风俗、时令、安全要点用 `- ` 列表；未调用相关工具则仅写占位行。
+        
+        ##预估出行价格
+        基于已获取到的工具数据，分项列出可量化的费用，并汇总总价（若同类别有多个选项则取推荐档位）。
 
         全文勿使用 HTML。
         """.strip()
@@ -90,17 +94,35 @@ class PlannerAgent:
             system_prompt=self.system_prompt,
         )
 
-    def planner_assistant(self, user_query: str, *, history_messages: list[BaseMessage] | None = None) -> tuple[str, list[dict[str, str]]]:
-        # 规划助手；返回 (正文, 工具返回列表)。
+    def planner_assistant_stream(
+        self,
+        user_query: str,
+        *,
+        history_messages: list[BaseMessage] | None = None,
+        cancel_requested: threading.Event | None = None,
+    ):
+        # 行程规划助手
         try:
             prior = list(history_messages or [])
-            messages: list[BaseMessage | dict] = [*prior, HumanMessage(content=user_query)]
-            response = self.agent.invoke({"messages": messages})
-            traces = extract_tool_traces_from_lc_messages(response.get("messages"))
-            last = response["messages"][-1]
-            content = getattr(last, "content", "") or ""
-            if not isinstance(content, str):
-                content = str(content)
-            return content, traces
+            messages = [*prior, HumanMessage(content=user_query)]
+            cumulative = ""
+            for piece in iter_agent_text_token_deltas(
+                self.agent,
+                messages,
+                cancel_requested=cancel_requested,
+            ):
+                cumulative += piece
+                yield cumulative, []
         except Exception as e:
-            return f"旅行规划时发生错误：{str(e)}，请联系管理员。", []
+            yield f"旅行规划时发生错误：{str(e)}，请联系管理员。", []
+
+    def planner_assistant(
+        self, user_query: str, *, history_messages: list[BaseMessage] | None = None
+    ) -> tuple[str, list[dict[str, str]]]:
+        # 消费流式状态直至结束；第二项保留为空列表以兼容旧接口（不向调用方暴露 ToolMessage）。
+        text = ""
+        for content, _ in self.planner_assistant_stream(
+            user_query, history_messages=history_messages
+        ):
+            text = content
+        return text, []

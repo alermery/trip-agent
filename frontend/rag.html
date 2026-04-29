@@ -107,7 +107,7 @@
         output += `\n`;
       }
 
-      output += `状态：${(data.neo4j_upserts || data.chroma_travel_deals_docs || data.chroma_rag_kb_docs || 0) > 0 ? '✅ 成功导入数据' : '⚠️ 完成但无有效数据导入'}\n`;
+      output += `状态：${(data.neo4j_upserts || data.chroma_travel_deals_docs || data.chroma_rag_kb_docs || 0) > 0 ? '[成功] 已导入数据' : '[提示] 完成但无有效数据导入'}\n`;
       return output;
     }
 
