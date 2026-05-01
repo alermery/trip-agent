@@ -1,4 +1,4 @@
-# WebSocket 聊天：鉴权、调用智能体、LangGraph values 流式增量推送并支持客户端取消。
+# WebSocket 聊天：鉴权、调用智能体、伪流式（按批 token）累积正文推送并支持客户端取消。
 
 import asyncio
 import logging

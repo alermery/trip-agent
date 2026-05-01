@@ -2,8 +2,9 @@ import threading
 
 from langchain.agents import create_agent
 from langchain_core.messages import BaseMessage, HumanMessage
-from backend.app.agents.tongyi_llm import get_chat_tongyi, get_chat_ollama
-from backend.app.services.agent_stream_tokens import iter_agent_text_token_deltas
+
+from backend.app.agents.tongyi_llm import get_chat_tongyi
+from backend.app.services.agent_stream_tokens import iter_agent_text_batched_deltas
 from backend.app.tools.get_map import (
     geocode_address,
     get_user_location,
@@ -22,6 +23,7 @@ from backend.app.tools.get_travel_details import (
 from backend.app.tools.get_weather import qweather_forecast
 from backend.app.tools.rag_kb import rag_kb_retriever
 from backend.app.tools.trip_agents_tools import trip_budget_skeleton
+
 
 class PlannerAgent:
     def __init__(self):
@@ -106,13 +108,15 @@ class PlannerAgent:
             prior = list(history_messages or [])
             messages = [*prior, HumanMessage(content=user_query)]
             cumulative = ""
-            for piece in iter_agent_text_token_deltas(
+            for piece in iter_agent_text_batched_deltas(
                 self.agent,
                 messages,
                 cancel_requested=cancel_requested,
             ):
                 cumulative += piece
                 yield cumulative, []
+            if not cumulative.strip():
+                yield "（未生成可见回复，请重试或简化问题。）", []
         except Exception as e:
             yield f"旅行规划时发生错误：{str(e)}，请联系管理员。", []
 

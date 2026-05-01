@@ -57,7 +57,7 @@ class AssistantService:
         conversation_id: str | None = None,
         cancel_requested: threading.Event | None = None,
     ):
-        # 与 chat 相同路由，但以 LangGraph values 流式产出 (完整 assistant 文本)；第二项恒为 [] 以保持接口兼容。
+        # 与 chat 相同路由；流式为 LangGraph messages + 通义流式，正文按批（多 token）累积推送。
         if agent == "weather":
             yield from self._weather.weather_assistant_stream(
                 query, cancel_requested=cancel_requested

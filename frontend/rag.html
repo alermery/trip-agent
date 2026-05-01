@@ -16,7 +16,7 @@
     <section class="auth-card rag-card">
       <h1>知识库上传</h1>
       <p class="rag-intro">
-        支持 <strong>txt</strong>、<strong>csv</strong>、<strong>xlsx</strong>。系统按内容自动分流：
+        支持 <strong>txt</strong>、<strong>csv</strong>、<strong>xlsx</strong>（单文件不超过 25MB）。系统按内容自动分流：
         <br />· <strong>套餐表</strong>请严格按照含详情、出发地、价格、优惠列格式→ 写入 <strong>Neo4j</strong> 套餐图谱并同步 <strong>Chroma travel_deals</strong>；
         <br />· <strong>其它表格或纯文本</strong> → 切块写入 <strong>Chroma rag_kb</strong>，由规划智能体的 <code>rag_kb_retriever</code> 检索。
       </p>
@@ -80,7 +80,7 @@
       }
 
       output += `处理目标：\n`;
-      (data.targets || []).forEach(target => {
+      (data.targets || []).forEach((target) => {
         output += `  • ${target}\n`;
       });
       output += `\n`;
@@ -102,12 +102,25 @@
       if (data.notes && data.notes.length > 0) {
         output += `详细说明：\n`;
         data.notes.forEach((note, i) => {
-          output += `  ${i+1}. ${note}\n`;
+          output += `  ${i + 1}. ${note}\n`;
         });
         output += `\n`;
       }
 
-      output += `状态：${(data.neo4j_upserts || data.chroma_travel_deals_docs || data.chroma_rag_kb_docs || 0) > 0 ? '[成功] 已导入数据' : '[提示] 完成但无有效数据导入'}\n`;
+      const rowTotal =
+        (data.neo4j_upserts || 0) +
+        (data.chroma_travel_deals_docs || 0) +
+        (data.chroma_rag_kb_docs || 0);
+      let statusLine;
+      if (rowTotal > 0) {
+        statusLine = '[成功] 已导入数据';
+      } else if (data.notes && data.notes.some((n) => /Chroma|Ollama|向量/i.test(String(n)))) {
+        statusLine =
+          '[警告] 完成但未写入有效数据（请检查 Ollama / nomic-embed-text 与 Chroma）';
+      } else {
+        statusLine = '[提示] 完成但无有效数据导入';
+      }
+      output += `状态：${statusLine}\n`;
       return output;
     }
 

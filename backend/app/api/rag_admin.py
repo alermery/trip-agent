@@ -31,7 +31,6 @@ def upload_rag_document(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"仅支持: {', '.join(sorted(_ALLOWED))}",
         )
-    # 多读 1 字节用于判断是否超过上限（避免只读到上限却无法区分「恰好等于」与「更大」）
     raw = file.file.read(_MAX_BYTES + 1)
     if len(raw) > _MAX_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="文件超过 25MB 限制")
@@ -52,7 +51,6 @@ def upload_rag_document(
             detail=f"处理失败: {e}",
         ) from e
     finally:
-        # NamedTemporaryFile(delete=False) 需手动清理临时文件
         if tmp_path is not None:
             try:
                 tmp_path.unlink(missing_ok=True)

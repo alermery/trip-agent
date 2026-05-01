@@ -3,8 +3,8 @@ import threading
 from langchain.agents import create_agent
 from langchain_core.messages import BaseMessage, HumanMessage
 
-from backend.app.agents.tongyi_llm import get_chat_tongyi, get_chat_ollama
-from backend.app.services.agent_stream_tokens import iter_agent_text_token_deltas
+from backend.app.agents.tongyi_llm import get_chat_tongyi
+from backend.app.services.agent_stream_tokens import iter_agent_text_batched_deltas
 from backend.app.tools.get_map import (
     geocode_address,
     get_user_location,
@@ -60,13 +60,15 @@ class MapAgent:
         try:
             messages: list[BaseMessage] = [HumanMessage(content=location)]
             cumulative = ""
-            for piece in iter_agent_text_token_deltas(
+            for piece in iter_agent_text_batched_deltas(
                 self.agent,
                 messages,
                 cancel_requested=cancel_requested,
             ):
                 cumulative += piece
                 yield cumulative, []
+            if not cumulative.strip():
+                yield "（未生成可见回复，请重试或简化问题。）", []
         except Exception as e:
             yield f"地图查询时发生错误：{str(e)}，请联系管理员。", []
 

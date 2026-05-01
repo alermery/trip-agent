@@ -189,7 +189,13 @@ def ingest_file(path: Path) -> dict:
         ts.append("chroma:rag_kb")
         if n < 0:
             notes.append("Chroma 失败（检查 Ollama nomic-embed-text）")
-        return _ret(ts, cr, ct, neo, notes)
+            return _ret(
+                ts, cr, ct, neo, notes,
+                message="知识库写入失败：Chroma 异常（请检查 Ollama 及 nomic-embed-text）",
+            )
+        if cr <= 0:
+            return _ret(ts, cr, ct, neo, notes, message="未写入：文本为空或无可切块内容")
+        return _ret(ts, cr, ct, neo, notes, message=f"成功写入 {cr} 条知识库文档")
 
     if ext not in (".csv", ".xlsx"):
         raise ValueError(f"不支持的文件类型: {ext}")
@@ -221,5 +227,10 @@ def ingest_file(path: Path) -> dict:
     ts.append("chroma:rag_kb")
     if n < 0:
         notes.append("Chroma 失败（检查 Ollama）")
+        msg = "知识库写入失败：Chroma 异常（请检查 Ollama 及 embedding）"
+    elif cr > 0:
+        msg = f"成功写入 {cr} 条知识库文档"
+    else:
+        msg = "未写入任何片段（表格行为空或列无有效内容）"
     notes.append(f"非套餐表→rag_kb；表头 {' / '.join(str(c) for c in cols[:6])}；{len(df)}行")
-    return _ret(ts, cr, ct, neo, notes, message=f"成功写入 {cr} 条知识库文档")
+    return _ret(ts, cr, ct, neo, notes, message=msg)

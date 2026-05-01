@@ -1,10 +1,10 @@
 from __future__ import annotations
-
+import json
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
-
-from langchain_community.chat_models.tongyi import ChatTongyi
+from langchain_community.chat_models.tongyi import ChatTongyi, _create_retry_decorator
 from langchain_community.llms.tongyi import (
     agenerate_with_last_element_mark,
+    check_response,
     generate_with_last_element_mark,
 )
 from langchain_core.callbacks import (
@@ -15,11 +15,60 @@ from langchain_core.messages import BaseMessage
 from langchain_core.outputs import ChatGenerationChunk
 from langchain_ollama.chat_models import ChatOllama
 
-DEFAULT_QWEN_MODEL = "qwen3-max-preview"
+DEFAULT_QWEN_MODEL = "qwen3-vl-32b-thinking"
 
+def _tongyi_resp_has_nonempty_choices(resp: Any) -> bool:
+    if not isinstance(resp, dict):
+        return False
+    out = resp.get("output")
+    if not isinstance(out, dict):
+        return False
+    ch = out.get("choices")
+    return isinstance(ch, list) and len(ch) > 0
 
 class SafeStreamChatTongyi(ChatTongyi):
-    """DashScope 在「流式 + 绑定 tools」时偶发返回无 choices 的帧；官方 ChatTongyi 直接 [0] 会 list index out of range。"""
+    # 解决智能体在流式输出与绑定 tools 时：部分帧无 choices，或 subtract_client_response 内 choices[0] 越界
+    def stream_completion_with_retry(self, **kwargs: Any) -> Any:
+        # 与 ChatTongyi 一致，但在「流式 + 非 incremental_output」（绑 tools 时）跳过坏帧，避免 subtract 内 IndexError。
+        retry_decorator = _create_retry_decorator(self)
+
+        @retry_decorator
+        def _stream_completion_with_retry(**_kwargs: Any) -> Any:
+            responses = self.client.call(**_kwargs)
+            prev_resp: Any = None
+
+            for resp in responses:
+                if _kwargs.get("stream") and not _kwargs.get("incremental_output", False):
+                    resp_copy = json.loads(json.dumps(resp))
+                    if resp_copy.get("output") and resp_copy["output"].get("choices"):
+                        choice = resp_copy["output"]["choices"][0]
+                        message = choice["message"]
+                        if isinstance(message.get("content"), list):
+                            content_text = "".join(
+                                item.get("text", "")
+                                for item in message["content"]
+                                if isinstance(item, dict)
+                            )
+                            message["content"] = content_text
+                        resp = resp_copy
+
+                    if prev_resp is None:
+                        if not _tongyi_resp_has_nonempty_choices(resp):
+                            continue
+                        delta_resp = resp
+                    else:
+                        if not _tongyi_resp_has_nonempty_choices(resp):
+                            continue
+                        try:
+                            delta_resp = self.subtract_client_response(resp, prev_resp)
+                        except (IndexError, KeyError, TypeError, ValueError):
+                            continue
+                    prev_resp = resp
+                    yield check_response(delta_resp)
+                else:
+                    yield check_response(resp)
+
+        return _stream_completion_with_retry(**kwargs)
 
     def _stream(
         self,
@@ -107,18 +156,15 @@ class SafeStreamChatTongyi(ChatTongyi):
                 await run_manager.on_llm_new_token(chunk.text, chunk=chunk)
             yield chunk
 
-
-def get_chat_tongyi(model: str = DEFAULT_QWEN_MODEL) -> ChatTongyi:
-    # streaming=True 配合 agent.stream(..., stream_mode="messages", version="v2") 才能 token 级推送。
+def get_chat_tongyi(model: str = DEFAULT_QWEN_MODEL, *, streaming: bool = True) -> ChatTongyi:
+    # streaming=True 与 agent.stream(stream_mode="messages") 配合；SafeStreamChatTongyi 已兜底通义坏帧。
     return SafeStreamChatTongyi(
         model=model,
-        streaming=True,
+        streaming=streaming,
         model_kwargs={"enable_thinking": False},
     )
 
-
 DEFAULT_OLLAMA_MODEL = "qwen3.5:9b"
-
 
 def get_chat_ollama(model: str = DEFAULT_OLLAMA_MODEL) -> ChatOllama:
     return ChatOllama(model=model, streaming=True)
